@@ -7,14 +7,19 @@ use warp::Filter;
 async fn main() {
     env_logger::init();
 
-    let root = warp::path::end().map(|| format!("Hello!"));
-    let login = warp::path!("login").and(warp::get()).and_then(handle_login);
-    let authorize = warp::path!("authorize")
+    let root = warp::get()
+        .and(warp::path::end())
+        .and(warp::fs::file("./www/index.html"));
+    let assets = warp::path("assets")
+        .and(warp::get())
+        .and(warp::fs::dir("./www/assets/"));
+    let login = warp::path("login").and(warp::get()).and_then(handle_login);
+    let authorize = warp::path("authorize")
         .and(warp::get())
         .and(warp::query::<HashMap<String, String>>())
         .and_then(handle_authorize);
 
-    let routes = root.or(login).or(authorize);
+    let routes = root.or(assets).or(login).or(authorize);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
