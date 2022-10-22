@@ -6,5 +6,8 @@ export default defineConfig({
   plugins: [svelte()],
   build: {
     outDir: "../www"
+  },
+  css: {
+    postcss: "./postcss.config.cjs"
   }
 })
