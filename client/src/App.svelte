@@ -3,11 +3,11 @@
 </script>
 
 <Router>
-  <header class="bg-zinc-700 text-white">
-    <ul>
-      <li><Link to="page1">Page 1</Link></li>
-      <li><Link to="page2">Page 2</Link></li>
-      <li><a href="/login">Login with Spotify</a></li>
+  <header class="bg-zinc-700 text-white w-screen p-2">
+    <ul class="flex flex-row">
+      <li><Link to="page1" class="p-2 hover:bg-zinc-500">Page 1</Link></li>
+      <li><Link to="page2" class="p-2 hover:bg-zinc-500">Page 2</Link></li>
+      <li><a href="/login" class="p-2 hover:bg-zinc-500">Login with Spotify</a></li>
     </ul>
   </header>
   <main>

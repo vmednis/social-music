@@ -12,13 +12,17 @@ async fn main() {
     let assets = warp::path("assets")
         .and(warp::get())
         .and(warp::fs::dir("./www/assets/"));
+    let robots = warp::path("robots.txt")
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(warp::fs::file("./www/robots.txt"));
     let login = warp::path("login").and(warp::get()).and_then(handle_login);
     let authorize = warp::path("authorize")
         .and(warp::get())
         .and(warp::query::<HashMap<String, String>>())
         .and_then(handle_authorize);
 
-    let routes = assets.or(login).or(authorize).or(default);
+    let routes = assets.or(robots).or(login).or(authorize).or(default);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
