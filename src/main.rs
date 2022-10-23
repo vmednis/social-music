@@ -3,10 +3,14 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use warp::Filter;
 use sodiumoxide::crypto::secretbox;
+use db::Db;
+
+mod db;
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
+    let db = db::connect_db();
 
     let default = warp::get()
         .and(warp::fs::file("./www/index.html"));
@@ -25,11 +29,13 @@ async fn main() {
     let authorize = warp::path("authorize")
         .and(warp::get())
         .and(warp::query::<HashMap<String, String>>())
+        .and(db::with(db.clone()))
         .and_then(handle_authorize);
 
     let test = warp::path("test")
         .and(warp::get())
         .and(warp::cookie("userid"))
+        .and(db::with(db.clone()))
         .and_then(test_endpoint);
 
     let routes = assets.or(robots).or(icon).or(login).or(authorize).or(test).or(default);
@@ -37,8 +43,11 @@ async fn main() {
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 
-async fn test_endpoint(cookie: String) -> Result<impl warp::Reply, Infallible> {
-    Ok(format!("Hello, {}!", decrypt_cookie(cookie)))
+async fn test_endpoint(cookie: String, db: Db) -> Result<impl warp::Reply, Infallible> {
+    let user_id = decrypt_cookie(cookie);
+    let mut db = db.lock().await;
+    let key = db.get_auth(user_id.clone());
+    Ok(format!("Hello, {} your token is {:?}!", user_id, key))
 }
 
 async fn handle_login() -> Result<impl warp::Reply, Infallible> {
@@ -117,7 +126,7 @@ struct User {
     uri: String,
 }
 
-async fn handle_authorize(query: HashMap<String, String>) -> Result<impl warp::Reply, Infallible> {
+async fn handle_authorize(query: HashMap<String, String>, db: Db) -> Result<impl warp::Reply, Infallible> {
     let return_url = "http://127.0.0.1:3030/authorize";
 
     let client_id = std::env::var("SPOTIFY_CLIENT_ID").unwrap();
@@ -157,6 +166,9 @@ async fn handle_authorize(query: HashMap<String, String>) -> Result<impl warp::R
         .unwrap();
 
     log::info!("{:?}", user);
+
+    let mut db = db.lock().await;
+    db.set_auth(user.uri.clone(), access_token.clone());
 
     let track_data = PlayerPlayData {
         context_uri: None,
