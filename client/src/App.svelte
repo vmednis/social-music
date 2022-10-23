@@ -1,6 +1,9 @@
 <script>
   import {Router, Link, Route} from "svelte-navigator";
   import Room from "/src/pages/Room.svelte";
+
+  let greeting = "No greeting :(";
+  fetch("/test").then((response) => response.text()).then((body) => greeting = body);
 </script>
 
 <Router>
@@ -12,6 +15,9 @@
       </ul>
     </header>
     <main class="flex-auto min-h-0">
+      <Route path="">
+        <p>{greeting}</p>
+      </Route>
       <Route path="room" component={Room}/>
     </main>
   </div>
