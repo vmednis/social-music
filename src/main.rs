@@ -2,10 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::Infallible;
 use warp::Filter;
-use sodiumoxide::crypto::secretbox;
 use db::Db;
 
 mod db;
+mod cookie;
 
 #[tokio::main]
 async fn main() {
@@ -34,7 +34,7 @@ async fn main() {
 
     let test = warp::path("test")
         .and(warp::get())
-        .and(warp::cookie("userid"))
+        .and(cookie::with_user())
         .and(db::with(db.clone()))
         .and_then(test_endpoint);
 
@@ -43,8 +43,7 @@ async fn main() {
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 
-async fn test_endpoint(cookie: String, db: Db) -> Result<impl warp::Reply, Infallible> {
-    let user_id = decrypt_cookie(cookie);
+async fn test_endpoint(user_id: String, db: Db) -> Result<impl warp::Reply, Infallible> {
     let mut db = db.lock().await;
     let key = db.get_auth(user_id.clone());
     Ok(format!("Hello, {} your token is {:?}!", user_id, key))
@@ -165,8 +164,6 @@ async fn handle_authorize(query: HashMap<String, String>, db: Db) -> Result<impl
         .await
         .unwrap();
 
-    log::info!("{:?}", user);
-
     let mut db = db.lock().await;
     db.set_auth(user.uri.clone(), access_token.clone());
 
@@ -184,33 +181,8 @@ async fn handle_authorize(query: HashMap<String, String>, db: Db) -> Result<impl
         .await
         .unwrap();
 
-    let cookie = encrypt_cookie(user.uri);
+    let cookie = cookie::gen_user(user.uri);
     let redirect = warp::redirect::see_other(warp::http::Uri::from_static("/"));
     let reply = warp::reply::with_header(redirect, "Set-Cookie", format!("userid={}", cookie));
     Ok(reply)
-}
-
-fn encrypt_cookie(data: String) -> String {
-    let key_raw = std::env::var("COOKIE_KEY").unwrap();
-    let key = secretbox::Key::from_slice(key_raw.as_bytes()).unwrap();
-    let nonce = secretbox::gen_nonce();
-
-    let chypertext = secretbox::seal(data.as_bytes(), &nonce, &key);
-
-    let nonce_out = base64::encode(nonce);
-    let chypertext_out = base64::encode(chypertext);
-
-    format!("{}:{}", nonce_out, chypertext_out)
-}
-
-fn decrypt_cookie(cookie: String) -> String {
-    let parts: Vec<&str> = cookie.split(":").collect();
-    let nonce_in = base64::decode(parts[0]).unwrap();
-    let chypertext_in = base64::decode(parts[1]).unwrap();
-
-    let key_raw = std::env::var("COOKIE_KEY").unwrap();
-    let key = secretbox::Key::from_slice(key_raw.as_bytes()).unwrap();
-    let nonce = secretbox::Nonce::from_slice(&nonce_in).unwrap();
-
-    String::from_utf8(secretbox::open(&chypertext_in, &nonce, &key).unwrap()).unwrap()
 }
