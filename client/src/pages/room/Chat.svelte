@@ -2,8 +2,17 @@
   let message;
   let messages = [];
 
+  const socket = new WebSocket("ws://127.0.0.1:3030/chat");
+  let socket_ready = false;
+  socket.addEventListener('open', (event) => {
+    socket_ready = true;
+  })
+
   function writeMessage(message) {
     messages.push(message);
+    if(socket_ready) {
+      socket.send(message);
+    }
     messages = messages;
   }
 
@@ -25,7 +34,7 @@
       {/each}
     </div>
   </div>
-  <input id="chatbox" type="text" class="border border-solid grow-0" placeholder="Send a message..." bind:value={message} on:keydown={onChatBoxKeyDown}/>
+  <input id="chatbox" type="text" class="border border-solid grow-0" placeholder="Send a message..." bind:value={message} on:keydown={onChatBoxKeyDown} disabled={!socket_ready}/>
 </div>
 
 <style>

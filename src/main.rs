@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::Infallible;
-use warp::Filter;
+use warp::{Filter, ws::{Ws, WebSocket}};
 use db::Db;
+use futures_util::StreamExt;
 
 mod db;
 mod cookie;
@@ -10,6 +11,7 @@ mod cookie;
 #[tokio::main]
 async fn main() {
     env_logger::init();
+
     let db = db::connect_db();
 
     let default = warp::get()
@@ -31,21 +33,25 @@ async fn main() {
         .and(warp::query::<HashMap<String, String>>())
         .and(db::with(db.clone()))
         .and_then(handle_authorize);
-
+    let chat = warp::path("chat")
+        .and(cookie::with_user())
+        .and(db::with(db.clone()))
+        .and(warp::ws())
+        .and_then(handle_chat);
     let test = warp::path("test")
         .and(warp::get())
         .and(cookie::with_user())
         .and(db::with(db.clone()))
         .and_then(test_endpoint);
 
-    let routes = assets.or(robots).or(icon).or(login).or(authorize).or(test).or(default);
+    let routes = assets.or(robots).or(icon).or(login).or(authorize).or(test).or(chat).or(default);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 
 async fn test_endpoint(user_id: String, db: Db) -> Result<impl warp::Reply, Infallible> {
     let mut db = db.lock().await;
-    let key = db.get_auth(user_id.clone());
+    let key = db.get_auth(user_id.clone()).await;
     Ok(format!("Hello, {} your token is {:?}!", user_id, key))
 }
 
@@ -165,7 +171,7 @@ async fn handle_authorize(query: HashMap<String, String>, db: Db) -> Result<impl
         .unwrap();
 
     let mut db = db.lock().await;
-    db.set_auth(user.uri.clone(), access_token.clone());
+    db.set_auth(user.uri.clone(), access_token.clone()).await;
 
     let track_data = PlayerPlayData {
         context_uri: None,
@@ -185,4 +191,44 @@ async fn handle_authorize(query: HashMap<String, String>, db: Db) -> Result<impl
     let redirect = warp::redirect::see_other(warp::http::Uri::from_static("/"));
     let reply = warp::reply::with_header(redirect, "Set-Cookie", format!("userid={}", cookie));
     Ok(reply)
+}
+
+async fn handle_chat(user_id: String, db: Db, ws: Ws) -> Result<impl warp::Reply, Infallible> {
+    Ok(ws.on_upgrade(move |websocket| handle_chat_connected(user_id, db, websocket)))
+}
+
+async fn handle_chat_connected(user_id: String, db: Db, ws: WebSocket) {
+    let (mut _ws_tx, mut ws_rx) = ws.split();
+
+    let inner_db = db.clone();
+    tokio::task::spawn(async move {
+        let mut db = inner_db.lock().await;
+        let mut db_rx = db.subscribe_messages().await;
+        std::mem::drop(db);
+        while let Some(message) = db_rx.recv().await {
+            log::info!("Message in handle chat connected {:?}", message);
+        }
+    });
+
+
+    while let Some(result) = ws_rx.next().await {
+        let message_ws = match result {
+            Ok(msg) => msg,
+            Err(e) => {
+                panic!("Websocket Error {}", e);
+            }
+        };
+        if message_ws.is_text() {
+            let message = db::Message {
+                from: user_id.clone(),
+                message: message_ws.to_str().unwrap().to_string(),
+            };
+            log::info!("{:?}", message);
+
+            let mut db = db.lock().await;
+            db.add_message(message).await;
+        }
+    }
+
+    log::info!("Exiting WebSocket for {}", user_id);
 }
