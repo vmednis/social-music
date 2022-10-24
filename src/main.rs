@@ -1,12 +1,15 @@
+use db::Db;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::Infallible;
-use warp::{Filter, ws::{Ws, WebSocket}};
-use db::Db;
-use futures_util::StreamExt;
+use warp::{
+    ws::{WebSocket, Ws},
+    Filter,
+};
 
-mod db;
 mod cookie;
+mod db;
 
 #[tokio::main]
 async fn main() {
@@ -14,8 +17,7 @@ async fn main() {
 
     let db = db::connect_db();
 
-    let default = warp::get()
-        .and(warp::fs::file("./www/index.html"));
+    let default = warp::get().and(warp::fs::file("./www/index.html"));
     let assets = warp::path("assets")
         .and(warp::get())
         .and(warp::fs::dir("./www/assets/"));
@@ -44,7 +46,14 @@ async fn main() {
         .and(db::with(db.clone()))
         .and_then(test_endpoint);
 
-    let routes = assets.or(robots).or(icon).or(login).or(authorize).or(test).or(chat).or(default);
+    let routes = assets
+        .or(robots)
+        .or(icon)
+        .or(login)
+        .or(authorize)
+        .or(test)
+        .or(chat)
+        .or(default);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
@@ -131,7 +140,10 @@ struct User {
     uri: String,
 }
 
-async fn handle_authorize(query: HashMap<String, String>, db: Db) -> Result<impl warp::Reply, Infallible> {
+async fn handle_authorize(
+    query: HashMap<String, String>,
+    db: Db,
+) -> Result<impl warp::Reply, Infallible> {
     let return_url = "http://127.0.0.1:3030/authorize";
 
     let client_id = std::env::var("SPOTIFY_CLIENT_ID").unwrap();
@@ -209,7 +221,6 @@ async fn handle_chat_connected(user_id: String, db: Db, ws: WebSocket) {
             log::info!("Message in handle chat connected {:?}", message);
         }
     });
-
 
     while let Some(result) = ws_rx.next().await {
         let message_ws = match result {
