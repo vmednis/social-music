@@ -7,18 +7,25 @@
   socket.addEventListener('open', (event) => {
     socket_ready = true;
   })
+  socket.addEventListener('message', (event) => {
+    let message = JSON.parse(event.data);
+    writeMessage(message);
+  })
 
-  function writeMessage(message) {
-    messages.push(message);
+  function sendMessage(message) {
     if(socket_ready) {
       socket.send(message);
     }
+  }
+
+  function writeMessage(message) {
+    messages.push(message);
     messages = messages;
   }
 
   function onChatBoxKeyDown(event) {
     if(event.key == "Enter") {
-      writeMessage(message);
+      sendMessage(message);
       event.preventDefault();
       event.target.value = "";
     }
@@ -30,7 +37,9 @@
     <div class="grow" />
     <div class="grow-0 flex flex-col">
       {#each messages as message}
-        <p>{message}</p>
+        <div class="border border-t-2">
+          <p><b>{message.from}:&nbsp;</b>{message.message}</p>
+        </div>
       {/each}
     </div>
   </div>

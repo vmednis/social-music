@@ -47,10 +47,7 @@ impl DbInternal {
     }
 
     pub async fn add_message(&mut self, message: Message) {
-        let mut args: Vec<(String, String)> = Vec::new();
-        args.push(("from".to_string(), message.from));
-        args.push(("message".to_string(), message.message));
-
+        let args: Vec<(String, String)> = message.into();
         let mut con = self.client.get_async_connection().await.unwrap();
         let _: () = con
             .xadd(Self::key_messages(), "*", &args[..])
@@ -58,7 +55,6 @@ impl DbInternal {
             .unwrap();
     }
 
-    //TODO: MAKE SURE IT GETS CLOSED!!!!
     pub async fn subscribe_messages(&mut self) -> mpsc::Receiver<Message> {
         let (tx, rx) = mpsc::channel(10);
         let url = std::env::var("REDIS_URL").unwrap();
@@ -71,7 +67,6 @@ impl DbInternal {
 
             loop {
                 if tx.is_closed() {
-                    log::info!("tx closed");
                     break;
                 }
                 let response: redis::RedisResult<streams::StreamReadReply> = con
@@ -90,24 +85,8 @@ impl DbInternal {
                                         .ids
                                         .iter()
                                         .map(|stream_id| {
-                                            let mut from = "unknown".to_string();
-                                            let mut message = "unknown".to_string();
-
-                                            if let redis::Value::Data(text) =
-                                                stream_id.map.get("from").unwrap()
-                                            {
-                                                from = String::from_utf8(text.clone()).unwrap();
-                                            }
-                                            if let redis::Value::Data(text) =
-                                                stream_id.map.get("message").unwrap()
-                                            {
-                                                message = String::from_utf8(text.clone()).unwrap();
-                                            }
-
-                                            let message = Message { from, message };
-
+                                            let message = Message::try_from(stream_id).unwrap();
                                             sends.push(tx.send(message));
-
                                             stream_id.id.clone()
                                         })
                                         .fold("$".to_string(), |_, val| val)
@@ -141,6 +120,48 @@ impl DbInternal {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
+    pub id: Option<String>,
     pub from: String,
     pub message: String,
+}
+
+impl Into<Vec<(String, String)>> for Message {
+    fn into(self) -> Vec<(String, String)> {
+        let mut args: Vec<(String, String)> = Vec::new();
+        args.push(("from".to_string(), self.from));
+        args.push(("message".to_string(), self.message));
+
+        args
+    }
+}
+
+impl TryFrom<&redis::streams::StreamId> for Message {
+    type Error = &'static str;
+
+    fn try_from(stream_id: &redis::streams::StreamId) -> Result<Self, Self::Error> {
+        let id = Some(stream_id.id.clone());
+
+        let from = util::read_redis_stream_data(stream_id, "from")?;
+        let message = util::read_redis_stream_data(stream_id, "message")?;
+
+        Ok(Message{
+            id,
+            from,
+            message
+        })
+    }
+}
+
+mod util {
+    type Error = &'static str;
+
+    pub fn read_redis_stream_data(stream_id: &redis::streams::StreamId, field: &str) -> Result<String, Error> {
+        match stream_id.map.get(field).ok_or("Missing mandatory field")? {
+            redis::Value::Data(bytes) => {
+                let string = String::from_utf8(bytes.clone()).or(Err("Failed utf8 conversion on field"))?;
+                Ok(string)
+            }
+            _ => Err("Wrong type for field"),
+        }
+    }
 }

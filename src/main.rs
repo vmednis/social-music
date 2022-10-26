@@ -1,5 +1,5 @@
 use db::Db;
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -210,18 +210,38 @@ async fn handle_chat(user_id: String, db: Db, ws: Ws) -> Result<impl warp::Reply
 }
 
 async fn handle_chat_connected(user_id: String, db: Db, ws: WebSocket) {
-    let (mut _ws_tx, mut ws_rx) = ws.split();
+    let (kill_tx, mut kill_rx) = tokio::sync::mpsc::channel(1);
+    let (mut ws_tx, mut ws_rx) = ws.split();
 
+    //Send out messages to the client
     let inner_db = db.clone();
     tokio::task::spawn(async move {
         let mut db = inner_db.lock().await;
         let mut db_rx = db.subscribe_messages().await;
         std::mem::drop(db);
-        while let Some(message) = db_rx.recv().await {
-            log::info!("Message in handle chat connected {:?}", message);
+
+        loop {
+            tokio::select! {
+                msg = db_rx.recv() => {
+                    match msg {
+                        Some(message) => {
+                            let json = serde_json::to_string(&message).unwrap();
+                            ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
+                        },
+                        _ => {
+                            log::info!("Database subscription in handle_chat_connected died");
+                            break;
+                        }
+                    }
+                },
+                _ = kill_rx.recv() => {
+                    break;
+                },
+            };
         }
     });
 
+    //Receive messages from the client
     while let Some(result) = ws_rx.next().await {
         let message_ws = match result {
             Ok(msg) => msg,
@@ -231,15 +251,15 @@ async fn handle_chat_connected(user_id: String, db: Db, ws: WebSocket) {
         };
         if message_ws.is_text() {
             let message = db::Message {
+                id: None,
                 from: user_id.clone(),
                 message: message_ws.to_str().unwrap().to_string(),
             };
-            log::info!("{:?}", message);
 
             let mut db = db.lock().await;
             db.add_message(message).await;
         }
     }
 
-    log::info!("Exiting WebSocket for {}", user_id);
+    kill_tx.send(()).await.unwrap();
 }
