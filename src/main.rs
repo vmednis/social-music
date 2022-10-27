@@ -1,15 +1,15 @@
 use db::Db;
-use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::Infallible;
 use warp::{
-    ws::{WebSocket, Ws},
+    ws::Ws,
     Filter,
 };
 
 mod cookie;
 mod db;
+mod socket;
 
 #[tokio::main]
 async fn main() {
@@ -45,6 +45,11 @@ async fn main() {
         .and(cookie::with_user())
         .and(db::with(db.clone()))
         .and_then(test_endpoint);
+    let token = warp::path("token")
+        .and(warp::get())
+        .and(cookie::with_user())
+        .and(db::with(db.clone()))
+        .and_then(get_token);
 
     let routes = assets
         .or(robots)
@@ -52,6 +57,7 @@ async fn main() {
         .or(login)
         .or(authorize)
         .or(test)
+        .or(token)
         .or(chat)
         .or(default);
 
@@ -64,6 +70,13 @@ async fn test_endpoint(user_id: String, db: Db) -> Result<impl warp::Reply, Infa
     Ok(format!("Hello, {} your token is {:?}!", user_id, key))
 }
 
+async fn get_token(user_id: String, db: Db) -> Result<impl warp::Reply, Infallible> {
+    let mut db = db.lock().await;
+    let key = db.get_auth(user_id.clone()).await;
+    let token = key.unwrap();
+    Ok(format!("{}", token))
+}
+
 async fn handle_login() -> Result<impl warp::Reply, Infallible> {
     let return_url = "http://127.0.0.1:3030/authorize";
     let client_id = std::env::var("SPOTIFY_CLIENT_ID").unwrap();
@@ -74,7 +87,7 @@ async fn handle_login() -> Result<impl warp::Reply, Infallible> {
         .path_and_query(format!("/authorize?response_type=code&client_id={client_id}&redirect_uri={redirect_uri}&state=not-used&scope={scope}&show_dialog=true",
             client_id = client_id,
             redirect_uri = return_url,
-            scope="user-modify-playback-state"
+            scope="user-modify-playback-state+streaming"
         ))
         .build()
         .unwrap();
@@ -89,15 +102,6 @@ struct AccessToken {
     scope: Option<String>,
     expires_in: u32,
     refresh_token: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct PlayerPlayData {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    context_uri: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    uris: Option<Vec<String>>,
-    position_ms: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -185,20 +189,6 @@ async fn handle_authorize(
     let mut db = db.lock().await;
     db.set_auth(user.uri.clone(), access_token.clone()).await;
 
-    let track_data = PlayerPlayData {
-        context_uri: None,
-        uris: Some(vec!["spotify:track:3ZzxtumoIENCi16HAKuiLU".to_string()]),
-        position_ms: 0,
-    };
-
-    client
-        .put("https://api.spotify.com/v1/me/player/play?device_id=75a716edd5637746e7dc90293bab9fe7eeaa699c")
-        .bearer_auth(access_token.clone())
-        .json(&track_data)
-        .send()
-        .await
-        .unwrap();
-
     let cookie = cookie::gen_user(user.uri);
     let redirect = warp::redirect::see_other(warp::http::Uri::from_static("/"));
     let reply = warp::reply::with_header(redirect, "Set-Cookie", format!("userid={}", cookie));
@@ -206,60 +196,5 @@ async fn handle_authorize(
 }
 
 async fn handle_chat(user_id: String, db: Db, ws: Ws) -> Result<impl warp::Reply, Infallible> {
-    Ok(ws.on_upgrade(move |websocket| handle_chat_connected(user_id, db, websocket)))
-}
-
-async fn handle_chat_connected(user_id: String, db: Db, ws: WebSocket) {
-    let (kill_tx, mut kill_rx) = tokio::sync::mpsc::channel(1);
-    let (mut ws_tx, mut ws_rx) = ws.split();
-
-    //Send out messages to the client
-    let inner_db = db.clone();
-    tokio::task::spawn(async move {
-        let mut db = inner_db.lock().await;
-        let mut db_rx = db.subscribe_messages().await;
-        std::mem::drop(db);
-
-        loop {
-            tokio::select! {
-                msg = db_rx.recv() => {
-                    match msg {
-                        Some(message) => {
-                            let json = serde_json::to_string(&message).unwrap();
-                            ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
-                        },
-                        _ => {
-                            log::info!("Database subscription in handle_chat_connected died");
-                            break;
-                        }
-                    }
-                },
-                _ = kill_rx.recv() => {
-                    break;
-                },
-            };
-        }
-    });
-
-    //Receive messages from the client
-    while let Some(result) = ws_rx.next().await {
-        let message_ws = match result {
-            Ok(msg) => msg,
-            Err(e) => {
-                panic!("Websocket Error {}", e);
-            }
-        };
-        if message_ws.is_text() {
-            let message = db::Message {
-                id: None,
-                from: user_id.clone(),
-                message: message_ws.to_str().unwrap().to_string(),
-            };
-
-            let mut db = db.lock().await;
-            db.add_message(message).await;
-        }
-    }
-
-    kill_tx.send(()).await.unwrap();
+    Ok(ws.on_upgrade(move |websocket| socket::connected(websocket, user_id, db)))
 }
