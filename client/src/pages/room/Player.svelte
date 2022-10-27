@@ -3,6 +3,7 @@
 
   let track = "unknown";
   let artists = "unknown";
+  let cover = "";
 
   const script = document.createElement("script");
   script.src = "https://sdk.scdn.co/spotify-player.js";
@@ -34,6 +35,12 @@
       let current_item = state.context.metadata.current_item;
       track = current_item.name;
       artists = current_item.artists.map(({ name }) => name).join(", ");
+      cover = current_item.images
+        .map(({height, width, url}) => {return {size: height * width, url};})
+        .sort((left, right) => right.size - left.size)
+        .reduce((acc, val) => val.size > 32 * 32 ? val : acc, {url: ""})
+        .url;
+
       console.log('Currently Playing', state);
     });
 
@@ -45,8 +52,14 @@
   }
 </script>
 
-<div class="grow-0">
-  <p>Currently playing: <b>{track}</b> by <b>{artists}</b></p>
+<div class="grow-0 bg-gray-100">
+  <div class="flex w-full">
+    <div class="w-16 h-16 bg-gray-800 mr-2" style="background-image: url('{cover}')"></div>
+    <div class="pt-1">
+      <b class="text-xl">{track}</b>
+      <p class="text-lg">{artists}</p>
+    </div>
+  </div>
 </div>
 
 <style>

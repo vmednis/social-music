@@ -20,7 +20,7 @@
     <div class="grow" />
     <div class="grow-0 flex flex-col">
       {#each $socket.messages as message}
-        <div class="border border-t-2">
+        <div class="border-t-2 border-gray-200">
           <p><b>{message.from}:&nbsp;</b>{message.message}</p>
         </div>
       {/each}
