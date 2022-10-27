@@ -1,4 +1,3 @@
-import { data } from "autoprefixer";
 import { writable } from "svelte/store";
 
 function createSocket() {
