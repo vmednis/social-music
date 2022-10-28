@@ -158,21 +158,21 @@ impl TryFrom<&redis::streams::StreamId> for Message {
         let from = util::read_redis_stream_data(stream_id, "from")?;
         let message = util::read_redis_stream_data(stream_id, "message")?;
 
-        Ok(Message{
-            id,
-            from,
-            message
-        })
+        Ok(Message { id, from, message })
     }
 }
 
 mod util {
     type Error = &'static str;
 
-    pub fn read_redis_stream_data(stream_id: &redis::streams::StreamId, field: &str) -> Result<String, Error> {
+    pub fn read_redis_stream_data(
+        stream_id: &redis::streams::StreamId,
+        field: &str,
+    ) -> Result<String, Error> {
         match stream_id.map.get(field).ok_or("Missing mandatory field")? {
             redis::Value::Data(bytes) => {
-                let string = String::from_utf8(bytes.clone()).or(Err("Failed utf8 conversion on field"))?;
+                let string =
+                    String::from_utf8(bytes.clone()).or(Err("Failed utf8 conversion on field"))?;
                 Ok(string)
             }
             _ => Err("Wrong type for field"),

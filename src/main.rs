@@ -2,10 +2,7 @@ use db::Db;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::Infallible;
-use warp::{
-    ws::Ws,
-    Filter,
-};
+use warp::{ws::Ws, Filter};
 
 mod cookie;
 mod db;
