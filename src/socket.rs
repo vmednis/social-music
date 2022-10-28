@@ -3,11 +3,31 @@ use futures_util::{SinkExt, StreamExt};
 use warp::ws::WebSocket;
 
 pub async fn connected(ws: WebSocket, user_id: String, db: db::Db) {
-    let (kill_tx, mut kill_rx) = tokio::sync::mpsc::channel(1);
     let (mut ws_tx, mut ws_rx) = ws.split();
+
+    //Track user presence, own task in case ws task dies
+    let (kill_presence_tx, kill_presence_rx) = tokio::sync::oneshot::channel();
+    let inner_db = db.clone();
+    let inner_user_id = user_id.clone();
+    tokio::task::spawn(async move {
+        let mut db = inner_db.lock().await;
+        db.add_presence(inner_user_id.clone()).await;
+        std::mem::drop(db);
+
+        match kill_presence_rx.await {
+            Err(_) => {
+                log::info!("User presence removed because task exited unexepctedly");
+            },
+            _ => (),
+        }
+
+        let mut db = inner_db.lock().await;
+        db.remove_presence(inner_user_id.clone()).await;
+    });
 
     //Send out messages to the client
     let inner_db = db.clone();
+    let (kill_db_tx, mut kill_db_rx) = tokio::sync::mpsc::channel(1);
     tokio::task::spawn(async move {
         let mut db = inner_db.lock().await;
         let mut db_rx = db.subscribe_messages().await;
@@ -27,7 +47,7 @@ pub async fn connected(ws: WebSocket, user_id: String, db: db::Db) {
                         }
                     }
                 },
-                _ = kill_rx.recv() => {
+                _ = kill_db_rx.recv() => {
                     break;
                 },
             };
@@ -52,7 +72,8 @@ pub async fn connected(ws: WebSocket, user_id: String, db: db::Db) {
         }
     }
 
-    kill_tx.send(()).await.unwrap();
+    kill_db_tx.send(()).await.unwrap();
+    kill_presence_tx.send(()).unwrap();
 }
 
 async fn on_message(db: db::Db, user_id: String, message: String) {

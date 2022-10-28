@@ -56,8 +56,22 @@ impl DbInternal {
         con.get(Self::key_device(user_id)).await.ok()
     }
 
+    fn key_presence() -> String {
+        format!("room:presence")
+    }
+
+    pub async fn add_presence(&mut self, user_id: String) {
+        let mut con = self.client.get_async_connection().await.unwrap();
+        let _: () = con.sadd(Self::key_presence(), user_id).await.unwrap();
+    }
+
+    pub async fn remove_presence(&mut self, user_id: String) {
+        let mut con = self.client.get_async_connection().await.unwrap();
+        let _: () = con.srem(Self::key_presence(), user_id).await.unwrap();
+    }
+
     fn key_messages() -> String {
-        format!("messages")
+        format!("room:messages")
     }
 
     pub async fn add_message(&mut self, message: Message) {
