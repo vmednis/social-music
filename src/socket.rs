@@ -1,8 +1,9 @@
 use crate::db;
+use crate::spotify;
 use futures_util::{SinkExt, StreamExt};
 use warp::ws::WebSocket;
 
-pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::Db) {
+pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::Db, spotify: spotify::Spotify) {
     let (mut ws_tx, mut ws_rx) = ws.split();
 
     //Send out messages to the client
@@ -105,6 +106,7 @@ pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::
                     db.clone(),
                     room_id.clone(),
                     user_id.clone(),
+                    spotify.clone(),
                     message_ws.to_str().unwrap().to_string(),
                 )
                 .await;
@@ -122,7 +124,7 @@ pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::
     kill_db_tx.send(()).await.unwrap();
 }
 
-async fn on_message(db: db::Db, room_id: String, user_id: String, message: String) {
+async fn on_message(db: db::Db, room_id: String, user_id: String, spotify: spotify::Spotify, message: String) {
     let message: data_in::Message = serde_json::from_str(&message).unwrap();
 
     match message {
@@ -146,41 +148,10 @@ async fn on_message(db: db::Db, room_id: String, user_id: String, message: Strin
             let device_id = db.get_device(user_id.clone()).await.unwrap();
             std::mem::drop(db);
 
-            let client = reqwest::ClientBuilder::new()
-                .connection_verbose(true)
-                .build()
-                .unwrap();
-
-            //spotify:track:3ZzxtumoIENCi16HAKuiLU
-            //spotify:track:2qOfyyZc41LfQ63U9p3GVV
-            let track_data = PlayerPlayData {
-                context_uri: None,
-                uris: Some(vec![play_song.track_id]),
-                position_ms: 0,
-            };
-
-            client
-                .put(format!(
-                    "https://api.spotify.com/v1/me/player/play?device_id={}",
-                    device_id
-                ))
-                .bearer_auth(token)
-                .json(&track_data)
-                .send()
-                .await
-                .unwrap();
+            let spotify = spotify.lock().await;
+            spotify.request_play(token, device_id, play_song.track_id, 0).await;
         }
     };
-}
-
-use serde::{Deserialize, Serialize};
-#[derive(Debug, Serialize, Deserialize)]
-struct PlayerPlayData {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    context_uri: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    uris: Option<Vec<String>>,
-    position_ms: u32,
 }
 
 mod data_out {
