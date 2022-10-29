@@ -21,7 +21,7 @@
         <p>{greeting}</p>
       </Route>
       <Route path="room/new" component={NewRoom}/>
-      <Route path="room/:room_id" component={Room}/>
+      <Route path="room/:roomId" component={Room}/>
     </main>
   </div>
 </Router>

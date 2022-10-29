@@ -32,7 +32,7 @@ async fn main() {
         .and(warp::query::<HashMap<String, String>>())
         .and(db::with(db.clone()))
         .and_then(handle_authorize);
-    let chat = warp::path("chat")
+    let chat = warp::path!("chat"/ String)
         .and(cookie::with_user())
         .and(db::with(db.clone()))
         .and(warp::ws())
@@ -222,6 +222,6 @@ async fn create_room(user_id: String, db: Db, body: HashMap<String, String>) -> 
     }
 }
 
-async fn handle_chat(user_id: String, db: Db, ws: Ws) -> Result<impl warp::Reply, Infallible> {
-    Ok(ws.on_upgrade(move |websocket| socket::connected(websocket, user_id, db)))
+async fn handle_chat(room_id: String, user_id: String, db: Db, ws: Ws) -> Result<impl warp::Reply, Infallible> {
+    Ok(ws.on_upgrade(move |websocket| socket::connected(websocket, room_id, user_id, db)))
 }

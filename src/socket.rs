@@ -2,47 +2,17 @@ use crate::db;
 use futures_util::{SinkExt, StreamExt};
 use warp::ws::WebSocket;
 
-pub async fn connected(ws: WebSocket, user_id: String, db: db::Db) {
+pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::Db) {
     let (mut ws_tx, mut ws_rx) = ws.split();
-
-    //Track user presence, own task in case ws task dies
-    let (kill_presence_tx, mut kill_presence_rx) = tokio::sync::mpsc::channel(1);
-    let inner_db = db.clone();
-    let inner_user_id = user_id.clone();
-    tokio::task::spawn(async move {
-        let mut db = inner_db.lock().await;
-        db.add_presence(inner_user_id.clone()).await;
-        std::mem::drop(db);
-
-        loop {
-            let duration = tokio::time::Duration::from_secs(3);
-            tokio::select! {
-                exit = kill_presence_rx.recv() => {
-                    match exit {
-                        None => {
-                            log::info!("User presence removed because task exited unexepctedly");
-                        },
-                        _ => (),
-                    }
-                    break;
-                },
-                _ = tokio::time::sleep(duration) => {
-                    let mut db = inner_db.lock().await;
-                    db.keep_alive_presence(inner_user_id.clone()).await;
-                }
-            }
-        }
-
-        let mut db = inner_db.lock().await;
-        db.remove_presence(inner_user_id.clone()).await;
-    });
 
     //Send out messages to the client
     let inner_db = db.clone();
+    let inner_room_id = room_id.clone();
     let (kill_db_tx, mut kill_db_rx) = tokio::sync::mpsc::channel(1);
+    let (system_tx, mut system_rx) = tokio::sync::mpsc::channel(1);
     tokio::task::spawn(async move {
         let mut db = inner_db.lock().await;
-        let mut db_rx = db.subscribe_messages().await;
+        let mut db_rx = db.subscribe_messages(inner_room_id).await;
         std::mem::drop(db);
 
         loop {
@@ -59,6 +29,23 @@ pub async fn connected(ws: WebSocket, user_id: String, db: db::Db) {
                         }
                     }
                 },
+                msg = system_rx.recv() => {
+                    match msg {
+                        Some(message) => {
+                            let message = data_out::Message::ChatMessage(db::Message{
+                                id: None,
+                                from: "system".to_string(),
+                                message,
+                            });
+
+                            let json = serde_json::to_string(&message).unwrap();
+                            ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
+                        },
+                        _ => {
+                            break;
+                        }
+                    }
+                }
                 _ = kill_db_rx.recv() => {
                     break;
                 },
@@ -66,29 +53,71 @@ pub async fn connected(ws: WebSocket, user_id: String, db: db::Db) {
         }
     });
 
-    //Receive messages from the client
-    while let Some(result) = ws_rx.next().await {
-        let message_ws = match result {
-            Ok(msg) => msg,
-            Err(e) => {
-                panic!("Websocket Error {}", e);
+    let mut inner_db = db.lock().await;
+    if inner_db.exists_room(room_id.clone()).await {
+        std::mem::drop(inner_db);
+
+        //Track user presence, own task in case ws task dies
+        let (kill_presence_tx, mut kill_presence_rx) = tokio::sync::mpsc::channel(1);
+        let inner_db = db.clone();
+        let inner_user_id = user_id.clone();
+        let inner_room_id = room_id.clone();
+        tokio::task::spawn(async move {
+            let mut db = inner_db.lock().await;
+            db.add_presence(inner_room_id.clone(), inner_user_id.clone()).await;
+            std::mem::drop(db);
+
+            loop {
+                let duration = tokio::time::Duration::from_secs(3);
+                tokio::select! {
+                    exit = kill_presence_rx.recv() => {
+                        match exit {
+                            None => {
+                                log::info!("User presence removed because task exited unexepctedly");
+                            },
+                            _ => (),
+                        }
+                        break;
+                    },
+                    _ = tokio::time::sleep(duration) => {
+                        let mut db = inner_db.lock().await;
+                        db.keep_alive_presence(inner_room_id.clone(), inner_user_id.clone()).await;
+                    }
+                }
             }
-        };
-        if message_ws.is_text() {
-            on_message(
-                db.clone(),
-                user_id.clone(),
-                message_ws.to_str().unwrap().to_string(),
-            )
-            .await;
+
+            let mut db = inner_db.lock().await;
+            db.remove_presence(inner_room_id.clone(), inner_user_id.clone()).await;
+        });
+
+        //Receive messages from the client
+        while let Some(result) = ws_rx.next().await {
+            let message_ws = match result {
+                Ok(msg) => msg,
+                Err(e) => {
+                    panic!("Websocket Error {}", e);
+                }
+            };
+            if message_ws.is_text() {
+                on_message(
+                    db.clone(),
+                    room_id.clone(),
+                    user_id.clone(),
+                    message_ws.to_str().unwrap().to_string(),
+                )
+                .await;
+            }
         }
+
+        kill_presence_tx.send(()).await.unwrap();
+    } else {
+        system_tx.send(format!("Room {} does not exist!", room_id)).await.unwrap();
     }
 
     kill_db_tx.send(()).await.unwrap();
-    kill_presence_tx.send(()).await.unwrap();
 }
 
-async fn on_message(db: db::Db, user_id: String, message: String) {
+async fn on_message(db: db::Db, room_id: String, user_id: String, message: String) {
     let message: data_in::Message = serde_json::from_str(&message).unwrap();
 
     match message {
@@ -100,7 +129,7 @@ async fn on_message(db: db::Db, user_id: String, message: String) {
             };
 
             let mut db = db.lock().await;
-            db.add_message(message).await;
+            db.add_message(room_id.clone(), message).await;
         }
         data_in::Message::SetDevice(set_device) => {
             let mut db = db.lock().await;

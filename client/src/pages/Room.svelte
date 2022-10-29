@@ -4,10 +4,9 @@
   import Chat from "/src/pages/room/Chat.svelte";
   import {socket} from "./room/socket.js";
 
-  export let room_id = "";
-  console.log(room_id);
+  export let roomId = "";
 
-  socket.init();
+  socket.init(roomId);
   onDestroy(() => {
     socket.close();
   })

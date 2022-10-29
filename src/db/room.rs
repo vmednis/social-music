@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use redis::Commands;
+use redis::{Commands, AsyncCommands};
 use regex::Regex;
 use crate::db;
 
@@ -38,6 +38,11 @@ impl db::DbInternal {
       },
       Err(errors) => Err(errors)
     }
+  }
+
+  pub async fn exists_room(&mut self, room_id: String) -> bool {
+    let mut con = self.client.get_async_connection().await.unwrap();
+    con.exists(Self::key_room(room_id)).await.unwrap()
   }
 }
 

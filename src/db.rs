@@ -58,40 +58,40 @@ impl DbInternal {
         con.get(Self::key_device(user_id)).await.ok()
     }
 
-    fn key_presence(user_id: String) -> String {
-        format!("room:presence:{}", user_id)
+    fn key_presence(room_id: String, user_id: String) -> String {
+        format!("room:{}:presence:{}", room_id, user_id)
     }
 
-    pub async fn add_presence(&mut self, user_id: String) {
+    pub async fn add_presence(&mut self, room_id: String, user_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.set(Self::key_presence(user_id.clone()), "").await.unwrap();
-        self.keep_alive_presence(user_id).await;
+        let _: () = con.set(Self::key_presence(room_id.clone(), user_id.clone()), "").await.unwrap();
+        self.keep_alive_presence(room_id, user_id).await;
     }
 
-    pub async fn remove_presence(&mut self, user_id: String) {
+    pub async fn remove_presence(&mut self, room_id: String, user_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.del(Self::key_presence(user_id)).await.unwrap();
+        let _: () = con.del(Self::key_presence(room_id, user_id)).await.unwrap();
     }
 
-    pub async fn keep_alive_presence(&mut self, user_id: String) {
+    pub async fn keep_alive_presence(&mut self, room_id: String, user_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.expire(Self::key_presence(user_id), 5).await.unwrap();
+        let _: () = con.expire(Self::key_presence(room_id, user_id), 5).await.unwrap();
     }
 
-    fn key_messages() -> String {
-        format!("room:messages")
+    fn key_messages(room_id: String) -> String {
+        format!("room:{}:messages", room_id)
     }
 
-    pub async fn add_message(&mut self, message: Message) {
+    pub async fn add_message(&mut self, room_id: String, message: Message) {
         let args: Vec<(String, String)> = message.into();
         let mut con = self.client.get_async_connection().await.unwrap();
         let _: () = con
-            .xadd(Self::key_messages(), "*", &args[..])
+            .xadd(Self::key_messages(room_id), "*", &args[..])
             .await
             .unwrap();
     }
 
-    pub async fn subscribe_messages(&mut self) -> mpsc::Receiver<Message> {
+    pub async fn subscribe_messages(&mut self, room_id: String) -> mpsc::Receiver<Message> {
         let (tx, rx) = mpsc::channel(10);
         let url = std::env::var("REDIS_URL").unwrap();
         let client = Client::open(url).unwrap();
@@ -106,7 +106,7 @@ impl DbInternal {
                     break;
                 }
                 let response: redis::RedisResult<streams::StreamReadReply> = con
-                    .xread_options(&[Self::key_messages()], &[id.clone()], &options)
+                    .xread_options(&[Self::key_messages(room_id.clone())], &[id.clone()], &options)
                     .await;
 
                 let mut sends = Vec::new();
@@ -116,7 +116,7 @@ impl DbInternal {
                             .keys
                             .iter()
                             .map(|stream_key| {
-                                if stream_key.key == Self::key_messages() {
+                                if stream_key.key == Self::key_messages(room_id.clone()) {
                                     stream_key
                                         .ids
                                         .iter()
