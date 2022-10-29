@@ -7,28 +7,40 @@ function createSocket() {
     messages: []
   });
 
-  const ws = new WebSocket("ws://127.0.0.1:3030/chat");
-  update((data) => {
-    data.ws = ws;
-    return data;
-  });
+  const init = () => {
+    const ws = new WebSocket("ws://127.0.0.1:3030/chat");
 
-  ws.addEventListener('open', (event) => {
-    update((data) => {
-      data.ready = true;
-      return data;
-    });
-  });
-
-  ws.addEventListener('message', (event) => {
-    let message = JSON.parse(event.data);
-    if(message.ChatMessage) {
+    ws.addEventListener('open', (event) => {
       update((data) => {
-        data.messages.push(message.ChatMessage)
+        data.ready = true;
         return data;
       });
-    }
-  });
+    });
+
+    ws.addEventListener('message', (event) => {
+      let message = JSON.parse(event.data);
+      if(message.ChatMessage) {
+        update((data) => {
+          data.messages.push(message.ChatMessage)
+          return data;
+        });
+      }
+    });
+
+    update((data) => {
+      data.ws = ws;
+      return data;
+    });
+  };
+
+  const close = () => {
+    update((data) => {
+      data.ready = false;
+      data.ws.close();
+
+      return data;
+    });
+  };
 
   const sendChatMessage = (message) => {
     update((data) => {
@@ -68,6 +80,8 @@ function createSocket() {
 
   return {
     subscribe,
+    init,
+    close,
     sendChatMessage,
     sendSetDevice,
     sendPlaySong,

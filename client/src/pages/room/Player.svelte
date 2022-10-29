@@ -1,18 +1,25 @@
 <script>
   import { socket } from "./socket.js";
 
+  let ready = false;
   let track = "unknown";
   let artists = "unknown";
   let cover = "";
 
+  let token = "";
   const script = document.createElement("script");
   script.src = "https://sdk.scdn.co/spotify-player.js";
   script.async = true;
 
-  let token = "";
-  fetch("/token").then((response) => response.text()).then((body) => {
-    token = body;
-    document.body.appendChild(script)
+  let socket_ready = false;
+  socket.subscribe(({ready}) => {
+    if(!socket_ready && ready) {
+      fetch("/token").then((response) => response.text()).then((body) => {
+        token = body;
+        document.body.appendChild(script)
+      });
+      socket_ready = true;
+    }
   });
 
   window.onSpotifyWebPlaybackSDKReady = () => {
@@ -25,6 +32,7 @@
     player.addListener('ready', ({ device_id }) => {
       console.log('Ready with Device ID', device_id);
       socket.sendSetDevice(device_id);
+      ready = true;
     });
 
     player.addListener('not_ready', ({ device_id }) => {
@@ -56,8 +64,12 @@
   <div class="flex w-full">
     <div class="w-16 h-16 bg-gray-800 mr-2" style="background-image: url('{cover}')"></div>
     <div class="pt-1">
-      <b class="text-xl">{track}</b>
-      <p class="text-lg">{artists}</p>
+      {#if ready}
+        <b class="text-xl">{track}</b>
+        <p class="text-lg">{artists}</p>
+      {:else}
+        <p>Initializing player...</p>
+      {/if}
     </div>
   </div>
 </div>

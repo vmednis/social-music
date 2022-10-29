@@ -10,6 +10,7 @@
   <div class="h-screen max-h-screen w-screen flex flex-col overflow-hidden">
     <header class="bg-zinc-700 text-white w-screen p-2 grow-0">
       <ul class="flex flex-row">
+        <li><Link to="" class="p-2 hover:bg-zinc-500">Home</Link></li>
         <li><Link to="room" class="p-2 hover:bg-zinc-500">Room</Link></li>
         <li><a href="/login" class="p-2 hover:bg-zinc-500">Login with Spotify</a></li>
       </ul>
