@@ -64,7 +64,10 @@ impl DbInternal {
 
     pub async fn add_presence(&mut self, room_id: String, user_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.set(Self::key_presence(room_id.clone(), user_id.clone()), "").await.unwrap();
+        let _: () = con
+            .set(Self::key_presence(room_id.clone(), user_id.clone()), "")
+            .await
+            .unwrap();
         self.keep_alive_presence(room_id, user_id).await;
     }
 
@@ -75,7 +78,10 @@ impl DbInternal {
 
     pub async fn keep_alive_presence(&mut self, room_id: String, user_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.expire(Self::key_presence(room_id, user_id), 5).await.unwrap();
+        let _: () = con
+            .expire(Self::key_presence(room_id, user_id), 5)
+            .await
+            .unwrap();
     }
 
     fn key_messages(room_id: String) -> String {
@@ -106,7 +112,11 @@ impl DbInternal {
                     break;
                 }
                 let response: redis::RedisResult<streams::StreamReadReply> = con
-                    .xread_options(&[Self::key_messages(room_id.clone())], &[id.clone()], &options)
+                    .xread_options(
+                        &[Self::key_messages(room_id.clone())],
+                        &[id.clone()],
+                        &options,
+                    )
                     .await;
 
                 let mut sends = Vec::new();

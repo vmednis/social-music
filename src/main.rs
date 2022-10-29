@@ -1,6 +1,6 @@
 use db::Db;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap};
+use std::collections::HashMap;
 use std::convert::Infallible;
 use warp::{ws::Ws, Filter};
 
@@ -32,7 +32,7 @@ async fn main() {
         .and(warp::query::<HashMap<String, String>>())
         .and(db::with(db.clone()))
         .and_then(handle_authorize);
-    let chat = warp::path!("chat"/ String)
+    let chat = warp::path!("chat" / String)
         .and(cookie::with_user())
         .and(db::with(db.clone()))
         .and(warp::ws())
@@ -52,7 +52,6 @@ async fn main() {
         .and(cookie::with_user())
         .and(db::with(db.clone()))
         .and(warp::body::json())
-
         .and_then(create_room);
 
     let routes = assets
@@ -200,7 +199,11 @@ async fn handle_authorize(
     Ok(reply)
 }
 
-async fn create_room(user_id: String, db: Db, body: HashMap<String, String>) -> Result<impl::warp::Reply, Infallible> {
+async fn create_room(
+    user_id: String,
+    db: Db,
+    body: HashMap<String, String>,
+) -> Result<impl ::warp::Reply, Infallible> {
     let id = body.get("id").unwrap_or(&"".to_string()).clone();
     let title = body.get("title").unwrap_or(&"".to_string()).clone();
 
@@ -215,13 +218,16 @@ async fn create_room(user_id: String, db: Db, body: HashMap<String, String>) -> 
         Ok(_) => {
             let reply: Vec<String> = Vec::new();
             Ok(warp::reply::json(&reply))
-        },
-        Err(errors) => {
-            Ok(warp::reply::json(&errors))
         }
+        Err(errors) => Ok(warp::reply::json(&errors)),
     }
 }
 
-async fn handle_chat(room_id: String, user_id: String, db: Db, ws: Ws) -> Result<impl warp::Reply, Infallible> {
+async fn handle_chat(
+    room_id: String,
+    user_id: String,
+    db: Db,
+    ws: Ws,
+) -> Result<impl warp::Reply, Infallible> {
     Ok(ws.on_upgrade(move |websocket| socket::connected(websocket, room_id, user_id, db)))
 }

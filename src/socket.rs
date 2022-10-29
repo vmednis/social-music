@@ -64,7 +64,8 @@ pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::
         let inner_room_id = room_id.clone();
         tokio::task::spawn(async move {
             let mut db = inner_db.lock().await;
-            db.add_presence(inner_room_id.clone(), inner_user_id.clone()).await;
+            db.add_presence(inner_room_id.clone(), inner_user_id.clone())
+                .await;
             std::mem::drop(db);
 
             loop {
@@ -87,7 +88,8 @@ pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::
             }
 
             let mut db = inner_db.lock().await;
-            db.remove_presence(inner_room_id.clone(), inner_user_id.clone()).await;
+            db.remove_presence(inner_room_id.clone(), inner_user_id.clone())
+                .await;
         });
 
         //Receive messages from the client
@@ -111,7 +113,10 @@ pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::
 
         kill_presence_tx.send(()).await.unwrap();
     } else {
-        system_tx.send(format!("Room {} does not exist!", room_id)).await.unwrap();
+        system_tx
+            .send(format!("Room {} does not exist!", room_id))
+            .await
+            .unwrap();
     }
 
     kill_db_tx.send(()).await.unwrap();
