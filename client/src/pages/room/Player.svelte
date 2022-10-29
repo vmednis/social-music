@@ -67,7 +67,7 @@
       cover = current_item.images
         .map(({height, width, url}) => {return {size: height * width, url};})
         .sort((left, right) => right.size - left.size)
-        .reduce((acc, val) => val.size > 32 * 32 ? val : acc, {url: ""})
+        .reduce((acc, val) => val.size >= 64 * 64 ? val : acc, {url: ""})
         .url;
 
       playing = !state.paused;
@@ -107,7 +107,7 @@
 
 <div class="grow-0 bg-gray-100">
   <div class="flex w-full">
-    <div class="w-16 h-16 bg-gray-800 mr-2" style="background-image: url('{cover}')"></div>
+    <div class="w-16 h-16 bg-gray-800 mr-2 bg-center bg-cover" style="background-image: url('{cover}')"></div>
     <div class="pt-1">
       {#if ready}
         <b class="text-xl">{track}</b>
