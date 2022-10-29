@@ -32,7 +32,7 @@ pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::
                 msg = system_rx.recv() => {
                     match msg {
                         Some(message) => {
-                            let message = data_out::Message::ChatMessage(db::Message{
+                            let message = data_out::Message::ChatMessage(db::message::Message{
                                 id: None,
                                 from: "system".to_string(),
                                 message,
@@ -127,7 +127,7 @@ async fn on_message(db: db::Db, room_id: String, user_id: String, message: Strin
 
     match message {
         data_in::Message::ChatMessage(chat_message) => {
-            let message = db::Message {
+            let message = db::message::Message {
                 id: None,
                 from: user_id.clone(),
                 message: chat_message.message,
@@ -189,7 +189,7 @@ mod data_out {
 
     #[derive(Debug, Serialize, Deserialize)]
     pub enum Message {
-        ChatMessage(db::Message),
+        ChatMessage(db::message::Message),
     }
 }
 
