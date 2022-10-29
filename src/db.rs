@@ -56,18 +56,24 @@ impl DbInternal {
         con.get(Self::key_device(user_id)).await.ok()
     }
 
-    fn key_presence() -> String {
-        format!("room:presence")
+    fn key_presence(user_id: String) -> String {
+        format!("room:presence:{}", user_id)
     }
 
     pub async fn add_presence(&mut self, user_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.sadd(Self::key_presence(), user_id).await.unwrap();
+        let _: () = con.set(Self::key_presence(user_id.clone()), "").await.unwrap();
+        self.keep_alive_presence(user_id).await;
     }
 
     pub async fn remove_presence(&mut self, user_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.srem(Self::key_presence(), user_id).await.unwrap();
+        let _: () = con.del(Self::key_presence(user_id)).await.unwrap();
+    }
+
+    pub async fn keep_alive_presence(&mut self, user_id: String) {
+        let mut con = self.client.get_async_connection().await.unwrap();
+        let _: () = con.expire(Self::key_presence(user_id), 5).await.unwrap();
     }
 
     fn key_messages() -> String {

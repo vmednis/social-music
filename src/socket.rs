@@ -6,7 +6,7 @@ pub async fn connected(ws: WebSocket, user_id: String, db: db::Db) {
     let (mut ws_tx, mut ws_rx) = ws.split();
 
     //Track user presence, own task in case ws task dies
-    let (kill_presence_tx, kill_presence_rx) = tokio::sync::oneshot::channel();
+    let (kill_presence_tx, mut kill_presence_rx) = tokio::sync::mpsc::channel(1);
     let inner_db = db.clone();
     let inner_user_id = user_id.clone();
     tokio::task::spawn(async move {
@@ -14,11 +14,23 @@ pub async fn connected(ws: WebSocket, user_id: String, db: db::Db) {
         db.add_presence(inner_user_id.clone()).await;
         std::mem::drop(db);
 
-        match kill_presence_rx.await {
-            Err(_) => {
-                log::info!("User presence removed because task exited unexepctedly");
-            },
-            _ => (),
+        loop {
+            let duration = tokio::time::Duration::from_secs(3);
+            tokio::select! {
+                exit = kill_presence_rx.recv() => {
+                    match exit {
+                        None => {
+                            log::info!("User presence removed because task exited unexepctedly");
+                        },
+                        _ => (),
+                    }
+                    break;
+                },
+                _ = tokio::time::sleep(duration) => {
+                    let mut db = inner_db.lock().await;
+                    db.keep_alive_presence(inner_user_id.clone()).await;
+                }
+            }
         }
 
         let mut db = inner_db.lock().await;
@@ -73,7 +85,7 @@ pub async fn connected(ws: WebSocket, user_id: String, db: db::Db) {
     }
 
     kill_db_tx.send(()).await.unwrap();
-    kill_presence_tx.send(()).unwrap();
+    kill_presence_tx.send(()).await.unwrap();
 }
 
 async fn on_message(db: db::Db, user_id: String, message: String) {
