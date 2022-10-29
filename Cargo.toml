@@ -17,3 +17,4 @@ env_logger = "0.8.4"
 sodiumoxide = "0.2.7"
 base64 = "0.13.1"
 redis = { version = "0.22.1", features = ["aio", "tokio-comp"] }
+regex = "1.6.0"

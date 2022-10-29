@@ -6,6 +6,8 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use warp::Filter;
 
+pub mod room;
+
 pub type Db = Arc<Mutex<DbInternal>>;
 
 pub fn connect_db() -> Db {

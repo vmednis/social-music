@@ -1,6 +1,7 @@
 <script>
   import {Router, Link, Route} from "svelte-navigator";
   import Room from "/src/pages/Room.svelte";
+  import NewRoom from "/src/pages/NewRoom.svelte";
 
   let greeting = "No greeting :(";
   fetch("/test").then((response) => response.text()).then((body) => greeting = body);
@@ -11,7 +12,7 @@
     <header class="bg-zinc-700 text-white w-screen p-2 grow-0">
       <ul class="flex flex-row">
         <li><Link to="" class="p-2 hover:bg-zinc-500">Home</Link></li>
-        <li><Link to="room" class="p-2 hover:bg-zinc-500">Room</Link></li>
+        <li><Link to="/room/new" class="p-2 hover:bg-zinc-500">New Room</Link></li>
         <li><a href="/login" class="p-2 hover:bg-zinc-500">Login with Spotify</a></li>
       </ul>
     </header>
@@ -19,7 +20,8 @@
       <Route path="">
         <p>{greeting}</p>
       </Route>
-      <Route path="room" component={Room}/>
+      <Route path="room/new" component={NewRoom}/>
+      <Route path="room/:room_id" component={Room}/>
     </main>
   </div>
 </Router>

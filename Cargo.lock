@@ -1093,6 +1093,7 @@ dependencies = [
  "futures-util",
  "log",
  "redis",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

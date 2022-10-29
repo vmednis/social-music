@@ -1,6 +1,6 @@
 use db::Db;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap};
 use std::convert::Infallible;
 use warp::{ws::Ws, Filter};
 
@@ -47,6 +47,13 @@ async fn main() {
         .and(cookie::with_user())
         .and(db::with(db.clone()))
         .and_then(get_token);
+    let create_room = warp::path!("room" / "new")
+        .and(warp::post())
+        .and(cookie::with_user())
+        .and(db::with(db.clone()))
+        .and(warp::body::json())
+
+        .and_then(create_room);
 
     let routes = assets
         .or(robots)
@@ -56,6 +63,7 @@ async fn main() {
         .or(test)
         .or(token)
         .or(chat)
+        .or(create_room)
         .or(default);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
@@ -190,6 +198,28 @@ async fn handle_authorize(
     let redirect = warp::redirect::see_other(warp::http::Uri::from_static("/"));
     let reply = warp::reply::with_header(redirect, "Set-Cookie", format!("userid={}", cookie));
     Ok(reply)
+}
+
+async fn create_room(user_id: String, db: Db, body: HashMap<String, String>) -> Result<impl::warp::Reply, Infallible> {
+    let id = body.get("id").unwrap_or(&"".to_string()).clone();
+    let title = body.get("title").unwrap_or(&"".to_string()).clone();
+
+    let room = db::room::Room {
+        id,
+        title,
+        owner: user_id.clone(),
+    };
+
+    let mut db = db.lock().await;
+    match db.create_room(room).await {
+        Ok(_) => {
+            let reply: Vec<String> = Vec::new();
+            Ok(warp::reply::json(&reply))
+        },
+        Err(errors) => {
+            Ok(warp::reply::json(&errors))
+        }
+    }
 }
 
 async fn handle_chat(user_id: String, db: Db, ws: Ws) -> Result<impl warp::Reply, Infallible> {
