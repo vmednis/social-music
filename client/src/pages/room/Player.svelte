@@ -1,26 +1,47 @@
 <script>
+  import {onDestroy} from "svelte";
   import { socket } from "./socket.js";
 
   let ready = false;
   let track = "unknown";
   let artists = "unknown";
   let cover = "";
+  let playing = false;
+  let position = 0;
+  let duration = Infinity;
+  $: progress = position / duration * 100;
 
   let token = "";
   const script = document.createElement("script");
   script.src = "https://sdk.scdn.co/spotify-player.js";
   script.async = true;
+  script.id = "spotify-script";
 
   let socket_ready = false;
   socket.subscribe(({ready}) => {
     if(!socket_ready && ready) {
       fetch("/token").then((response) => response.text()).then((body) => {
         token = body;
-        document.body.appendChild(script)
+        if(!document.body.querySelector("#spotify-script")) {
+          //Only add a new player if none exists
+          document.body.appendChild(script);
+        } else {
+          //Manually retrigger ready
+          window.onSpotifyWebPlaybackSDKReady();
+        }
       });
       socket_ready = true;
     }
   });
+
+  const kill_player = {
+    on_kill: null,
+    kill: () => {
+      if(kill_player.on_kill) {
+        kill_player.on_kill();
+      }
+    }
+  };
 
   window.onSpotifyWebPlaybackSDKReady = () => {
     const player = new window.Spotify.Player({
@@ -49,6 +70,10 @@
         .reduce((acc, val) => val.size > 32 * 32 ? val : acc, {url: ""})
         .url;
 
+      playing = !state.paused;
+      position = state.position;
+      duration = state.duration;
+
       console.log('Currently Playing', state);
     });
 
@@ -56,8 +81,28 @@
       console.log('Autoplay is not allowed by the browser autoplay rules');
     });
 
+    kill_player.on_kill = () => {
+      player.disconnect();
+      console.log("Disconnecting player");
+    };
+    console.log(kill_player);
+
     player.connect();
   }
+
+  const progressStep = 250;
+  const advanceProgress = () => {
+    if(playing) {
+      position += progressStep;
+    }
+    setTimeout(advanceProgress, progressStep);
+  }
+  advanceProgress();
+
+  onDestroy(() => {
+    console.log(kill_player);
+    kill_player.kill();
+  });
 </script>
 
 <div class="grow-0 bg-gray-100">
@@ -71,6 +116,9 @@
         <p>Initializing player...</p>
       {/if}
     </div>
+  </div>
+  <div class="w-full bg-gray-300 h-1">
+    <div class="bg-amber-400 h-1 transition-[width] ease-linear duration-[250ms]" style="width: {progress}%;"></div>
   </div>
 </div>
 

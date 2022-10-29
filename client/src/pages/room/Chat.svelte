@@ -26,7 +26,7 @@
       {/each}
     </div>
   </div>
-  <input id="chatbox" type="text" class="border border-solid grow-0" placeholder="Send a message..." bind:value={message} on:keydown={onChatBoxKeyDown} disabled={!$socket.ready}/>
+  <input id="chatbox" type="text" class="border border-solid grow-0" placeholder="Send a message..." bind:value={message} on:keydown={onChatBoxKeyDown} disabled={!$socket.ready} autocomplete="off"/>
 </div>
 
 <style>
