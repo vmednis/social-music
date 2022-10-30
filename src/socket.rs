@@ -3,7 +3,13 @@ use crate::spotify;
 use futures_util::{SinkExt, StreamExt};
 use warp::ws::WebSocket;
 
-pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::Db, spotify: spotify::Spotify) {
+pub async fn connected(
+    ws: WebSocket,
+    room_id: String,
+    user_id: String,
+    db: db::Db,
+    spotify: spotify::Spotify,
+) {
     let (mut ws_tx, mut ws_rx) = ws.split();
 
     //Send out messages to the client
@@ -124,7 +130,13 @@ pub async fn connected(ws: WebSocket, room_id: String, user_id: String, db: db::
     kill_db_tx.send(()).await.unwrap();
 }
 
-async fn on_message(db: db::Db, room_id: String, user_id: String, spotify: spotify::Spotify, message: String) {
+async fn on_message(
+    db: db::Db,
+    room_id: String,
+    user_id: String,
+    spotify: spotify::Spotify,
+    message: String,
+) {
     let message: data_in::Message = serde_json::from_str(&message).unwrap();
 
     match message {
@@ -149,7 +161,9 @@ async fn on_message(db: db::Db, room_id: String, user_id: String, spotify: spoti
             std::mem::drop(db);
 
             let spotify = spotify.lock().await;
-            spotify.request_play(token, device_id, play_song.track_id, 0).await;
+            spotify
+                .request_play(token, device_id, play_song.track_id, 0)
+                .await;
         }
     };
 }
