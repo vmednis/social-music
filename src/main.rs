@@ -68,6 +68,29 @@ async fn main() {
         .or(create_room)
         .or(default);
 
+    tokio::task::spawn(async move {
+        loop {
+            let mut inner_db = db.lock().await;
+            let rx = inner_db.claim_room().await;
+            std::mem::drop(inner_db);
+
+            if let Some(room_id) = rx.await.unwrap() {
+                let inner_db = db.clone();
+                tokio::task::spawn(async move {
+                    log::info!("Claimed room {}", room_id.clone());
+
+                    loop {
+                        let mut inner_db = inner_db.lock().await;
+                        inner_db.keep_alive_room_claim(room_id.clone()).await;
+                        std::mem::drop(inner_db);
+
+                        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                    }
+                });
+            }
+        }
+    });
+
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 

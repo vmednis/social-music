@@ -8,6 +8,14 @@ impl db::DbInternal {
         format!("room:{}", room_id)
     }
 
+    fn key_rooms() -> String {
+        format!("rooms")
+    }
+
+    fn key_room_claimed(room_id: String) -> String {
+        format!("{}:claimed", Self::key_room(room_id))
+    }
+
     pub async fn create_room(&mut self, room: Room) -> Result<(), Vec<String>> {
         match room.validate() {
             Ok(_) => {
@@ -46,6 +54,62 @@ impl db::DbInternal {
     pub async fn exists_room(&mut self, room_id: String) -> bool {
         let mut con = self.client.get_async_connection().await.unwrap();
         con.exists(Self::key_room(room_id)).await.unwrap()
+    }
+
+    pub async fn offer_room(&mut self, room_id: String) {
+        let mut con = self.client.get_async_connection().await.unwrap();
+        let _: () = con.lpush(Self::key_rooms(), room_id).await.unwrap();
+    }
+
+    pub async fn claim_room(&mut self) -> tokio::sync::oneshot::Receiver<Option<String>> {
+        let client = self.blockable_client();
+        let mut con = client.get_async_connection().await.unwrap();
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        tokio::task::spawn(async move {
+            let res: Vec<String> = con.blpop(Self::key_rooms(), 5).await.unwrap();
+
+            let res = if res.is_empty() {
+                //No rooms to be claimed
+                None
+            } else {
+                let room_id = res.get(1).unwrap().clone();
+                let key = Self::key_room_claimed(room_id.clone());
+
+                //Have to block, so try to be as fast as possible
+                let mut inner_con = client.get_connection().unwrap();
+                let _: () = redis::cmd("WATCH")
+                    .arg(key.clone())
+                    .query(&mut inner_con)
+                    .unwrap();
+                let exists: i32 = inner_con.exists(key.clone()).unwrap();
+
+                let _: () = redis::cmd("MULTI").query(&mut inner_con).unwrap();
+
+                if exists == 0 {
+                    let _: () = inner_con.set(key.clone(), "").unwrap();
+                }
+
+                let res: Vec<()> = redis::cmd("EXEC").query(&mut inner_con).unwrap();
+
+                if res.is_empty() {
+                    //Room already claimed
+                    None
+                } else {
+                    let _: () = con.expire(key.clone(), 5).await.unwrap();
+                    Some(room_id.clone())
+                }
+            };
+
+            tx.send(res).unwrap();
+        });
+
+        rx
+    }
+
+    pub async fn keep_alive_room_claim(&mut self, room_id: String) {
+        let mut con = self.client.get_async_connection().await.unwrap();
+        let _: () = con.expire(Self::key_room_claimed(room_id), 5).await.unwrap();
     }
 }
 

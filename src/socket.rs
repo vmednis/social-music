@@ -62,6 +62,7 @@ pub async fn connected(
 
     let mut inner_db = db.lock().await;
     if inner_db.exists_room(room_id.clone()).await {
+        inner_db.offer_room(room_id.clone()).await;
         std::mem::drop(inner_db);
 
         //Track user presence, own task in case ws task dies
