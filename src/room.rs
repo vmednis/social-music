@@ -32,23 +32,30 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
                 refresh.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(3));
             }
             _ = &mut play_song => {
-                play_next_song(db.clone(), spotify.clone(), room_id.clone()).await;
-                play_song.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(15));
+                let time = play_next_song(db.clone(), spotify.clone(), room_id.clone()).await.unwrap_or(2000);
+                play_song.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_millis(time));
             }
         }
     }
 }
 
-async fn play_next_song(db: db::Db, spotify: spotify::Spotify, room_id: String) {
+async fn play_next_song(db: db::Db, spotify: spotify::Spotify, room_id: String) -> Option<u64> {
     let mut db = db.lock().await;
     if let Some(next_user_id) = db.pop_queue(room_id.clone()).await {
         if let Some(uri) = db.pop_user_queue(room_id.clone(), next_user_id.clone()).await {
             let spotify = spotify.lock().await;
             let token = db.get_auth(next_user_id.clone()).await.unwrap();
             let device_id = db.get_device(next_user_id.clone()).await.unwrap();
+            let track = spotify.request_track(token.clone(), uri.clone()).await;
             spotify.request_play(token, device_id, uri, 0).await;
 
             db.push_queue(room_id, next_user_id).await;
+
+            Some(track.duration_ms)
+        } else {
+            None
         }
+    } else {
+        None
     }
 }

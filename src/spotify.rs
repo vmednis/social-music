@@ -8,6 +8,7 @@ use warp::Filter;
 mod auth;
 mod me;
 mod play;
+mod tracks;
 
 pub type Spotify = Arc<Mutex<SpotifyInternal>>;
 
