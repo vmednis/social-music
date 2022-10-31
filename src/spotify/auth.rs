@@ -39,7 +39,7 @@ impl spotify::SpotifyRequest for SpotifyRequestAuthNew {
         None
     }
 
-    fn has_reuslt(&self) -> bool {
+    fn has_result(&self) -> bool {
         true
     }
 }

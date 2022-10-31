@@ -72,7 +72,7 @@ impl SpotifyInternal {
 
         let response = builder.send().await.unwrap();
 
-        if request.has_reuslt() {
+        if request.has_result() {
             Some(response.json().await.unwrap())
         } else {
             None
@@ -95,5 +95,5 @@ trait SpotifyRequest {
     fn token(&self) -> Option<String>;
     fn form_data(&self) -> Option<Vec<(&str, &str)>>;
     fn json_data(&self) -> Option<Self::JSONDataType>;
-    fn has_reuslt(&self) -> bool;
+    fn has_result(&self) -> bool;
 }

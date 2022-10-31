@@ -42,7 +42,7 @@ impl spotify::SpotifyRequest for SpotifyRequestPlay {
         })
     }
 
-    fn has_reuslt(&self) -> bool {
+    fn has_result(&self) -> bool {
         false
     }
 }

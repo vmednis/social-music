@@ -32,7 +32,7 @@ impl spotify::SpotifyRequest for SpotifyRequestMe {
         None
     }
 
-    fn has_reuslt(&self) -> bool {
+    fn has_result(&self) -> bool {
         true
     }
 }
