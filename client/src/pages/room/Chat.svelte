@@ -8,6 +8,12 @@
       if(play) {
         socket.sendPlaySong(play[1]);
       }
+
+      const queue = message.match(/\/queue ([^ ]+)/);
+      if(queue) {
+        socket.sendQueueSong(queue[1]);
+      }
+
       socket.sendChatMessage(message);
       event.preventDefault();
       event.target.value = "";

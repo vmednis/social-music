@@ -7,6 +7,7 @@ pub mod auth;
 pub mod device;
 pub mod message;
 pub mod presence;
+pub mod queue;
 pub mod room;
 
 pub type Db = Arc<Mutex<DbInternal>>;

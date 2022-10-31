@@ -74,6 +74,7 @@ pub async fn connected(
             let mut db = inner_db.lock().await;
             db.add_presence(inner_room_id.clone(), inner_user_id.clone())
                 .await;
+            db.push_queue(inner_room_id.clone(), inner_user_id.clone()).await; //TODO: Use presence instead
             std::mem::drop(db);
 
             loop {
@@ -98,6 +99,7 @@ pub async fn connected(
             let mut db = inner_db.lock().await;
             db.remove_presence(inner_room_id.clone(), inner_user_id.clone())
                 .await;
+            db.rem_queue(inner_room_id.clone(), inner_user_id.clone()).await; //TODO: Use presence instead
         });
 
         //Receive messages from the client
@@ -166,6 +168,10 @@ async fn on_message(
                 .request_play(token, device_id, play_song.track_id, 0)
                 .await;
         }
+        data_in::Message::QueueSong(queue_song) => {
+            let mut db = db.lock().await;
+            db.push_user_queue(room_id.clone(), user_id.clone(), queue_song.track_id).await;
+        }
     };
 }
 
@@ -198,9 +204,15 @@ mod data_in {
     }
 
     #[derive(Debug, Serialize, Deserialize)]
+    pub struct QueueSong {
+        pub track_id: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
     pub enum Message {
         ChatMessage(ChatMessage),
         SetDevice(SetDevice),
         PlaySong(PlaySong),
+        QueueSong(QueueSong),
     }
 }

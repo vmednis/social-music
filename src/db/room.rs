@@ -109,7 +109,10 @@ impl db::DbInternal {
 
     pub async fn keep_alive_room_claim(&mut self, room_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.expire(Self::key_room_claimed(room_id), 5).await.unwrap();
+        let _: () = con
+            .expire(Self::key_room_claimed(room_id), 5)
+            .await
+            .unwrap();
     }
 }
 
