@@ -32,7 +32,7 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
                 refresh.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(3));
             }
             _ = &mut play_song => {
-                let time = play_next_song(db.clone(), spotify.clone(), room_id.clone()).await.unwrap_or(2000);
+                let time = play_next_song(db.clone(), spotify.clone(), room_id.clone()).await.unwrap_or(15000);
                 play_song.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_millis(time));
             }
         }

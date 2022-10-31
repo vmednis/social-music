@@ -11,28 +11,33 @@
   let duration = Infinity;
   $: progress = position / duration * 100;
 
-  let token = "";
-  const script = document.createElement("script");
-  script.src = "https://sdk.scdn.co/spotify-player.js";
-  script.async = true;
-  script.id = "spotify-script";
+  if(!document.body.querySelector("#spotify-script")) {
+    //Only add a new player if none exists
+    const script = document.createElement("script");
+    script.src = "https://sdk.scdn.co/spotify-player.js";
+    script.async = true;
+    script.id = "spotify-script";
+
+    document.body.appendChild(script);
+  } else {
+    //Manually retrigger ready
+    window.onSpotifyWebPlaybackSDKReady();
+  }
 
   let socket_ready = false;
   socket.subscribe(({ready}) => {
     if(!socket_ready && ready) {
-      fetch("/token").then((response) => response.text()).then((body) => {
-        token = body;
-        if(!document.body.querySelector("#spotify-script")) {
-          //Only add a new player if none exists
-          document.body.appendChild(script);
-        } else {
-          //Manually retrigger ready
-          window.onSpotifyWebPlaybackSDKReady();
-        }
-      });
       socket_ready = true;
     }
   });
+
+  const whenSocketReady = (func) => {
+    if(socket_ready) {
+      func();
+    } else {
+      setTimeout(whenSocketReady, 250, func);
+    }
+  }
 
   const kill_player = {
     on_kill: null,
@@ -46,14 +51,20 @@
   window.onSpotifyWebPlaybackSDKReady = () => {
     const player = new window.Spotify.Player({
       name: "Social Music Thingy",
-      getOAuthToken: cb => {cb(token);},
+      getOAuthToken: cb => {
+        fetch("/token").then((response) => response.text()).then((token) => {
+          cb(token)
+        });
+      },
       volume: 1.0,
     });
 
     player.addListener('ready', ({ device_id }) => {
       console.log('Ready with Device ID', device_id);
-      socket.sendSetDevice(device_id);
-      ready = true;
+      whenSocketReady(() => {
+        socket.sendSetDevice(device_id);
+        ready = true;
+      })
     });
 
     player.addListener('not_ready', ({ device_id }) => {
@@ -85,12 +96,11 @@
       player.disconnect();
       console.log("Disconnecting player");
     };
-    console.log(kill_player);
 
     player.connect();
   }
 
-  const progressStep = 250;
+  const progressStep = 100;
   const advanceProgress = () => {
     if(playing) {
       position += progressStep;
@@ -100,7 +110,6 @@
   advanceProgress();
 
   onDestroy(() => {
-    console.log(kill_player);
     kill_player.kill();
   });
 </script>
@@ -118,7 +127,7 @@
     </div>
   </div>
   <div class="w-full bg-gray-300 h-1">
-    <div class="bg-amber-400 h-1 transition-[width] ease-linear duration-[250ms]" style="width: {progress}%;"></div>
+    <div class="bg-amber-400 h-1 transition-[width] ease-linear duration-[100ms]" style="width: {progress}%;"></div>
   </div>
 </div>
 
