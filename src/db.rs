@@ -30,11 +30,19 @@ impl DbInternal {
         let url = std::env::var("REDIS_URL").unwrap();
         let client = Client::open(url.clone()).unwrap();
 
-        Self { url, client }
+        let internal = Self { url, client };
+        internal.enable_keyspace_events();
+
+        internal
     }
 
     fn blockable_client(&self) -> Client {
         Client::open(self.url.clone()).unwrap()
+    }
+
+    fn enable_keyspace_events(&self) {
+        let mut con = self.client.get_connection().unwrap();
+        let _: () = redis::cmd("CONFIG").arg("set").arg("notify-keyspace-events").arg("Knxg").query(&mut con).unwrap();
     }
 }
 
