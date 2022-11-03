@@ -1,6 +1,6 @@
 <script>
   import {Router, Link, Route} from "svelte-navigator";
-  import Room from "/src/pages/Room.svelte";
+  import RoomPreJoin from "/src/pages/RoomPreJoin.svelte";
   import NewRoom from "/src/pages/NewRoom.svelte";
 
   let greeting = "No greeting :(";
@@ -21,7 +21,7 @@
         <p>{greeting}</p>
       </Route>
       <Route path="room/new" component={NewRoom}/>
-      <Route path="room/:roomId" component={Room}/>
+      <Route path="room/:roomId" component={RoomPreJoin}/>
     </main>
   </div>
 </Router>
