@@ -4,14 +4,14 @@
 
   function onChatBoxKeyDown(event) {
     if(event.key == "Enter") {
-      const play = message.match(/\/play ([^ ]+)/);
-      if(play) {
-        socket.sendPlaySong(play[1]);
-      }
-
       const queue = message.match(/\/queue ([^ ]+)/);
       if(queue) {
         socket.sendQueueSong(queue[1]);
+      }
+
+      const join = message.match(/\/join/);
+      if(join) {
+        socket.sendJoinQueue();
       }
 
       socket.sendChatMessage(message);

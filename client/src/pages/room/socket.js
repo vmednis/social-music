@@ -66,18 +66,6 @@ function createSocket() {
     })
   }
 
-  const sendPlaySong = (track_id) => {
-    update((data) => {
-      let json = JSON.stringify({
-        PlaySong: {
-          track_id
-        }
-      });
-      data.ws.send(json);
-      return data;
-    })
-  }
-
   const sendQueueSong = (track_id) => {
     update((data) => {
       let json = JSON.stringify({
@@ -90,14 +78,24 @@ function createSocket() {
     })
   }
 
+  const sendJoinQueue = () => {
+    update((data) => {
+      let json = JSON.stringify({
+        JoinQueue: null
+      });
+      data.ws.send(json);
+      return data;
+    })
+  }
+
   return {
     subscribe,
     init,
     close,
     sendChatMessage,
     sendSetDevice,
-    sendPlaySong,
     sendQueueSong,
+    sendJoinQueue,
   }
 }
 

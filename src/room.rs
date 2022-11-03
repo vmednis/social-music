@@ -43,7 +43,8 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
                                     db.add_presences(inner_room_id.clone(), event.user_id).await;
                                 },
                                 PresenceEventActivty::Leave => {
-                                    db.rem_presences(inner_room_id.clone(), event.user_id).await;
+                                    db.rem_presences(inner_room_id.clone(), event.user_id.clone()).await;
+                                    db.rem_queue(inner_room_id.clone(), event.user_id).await;
                                 }
                             }
                         },
@@ -60,7 +61,7 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
     });
 
     let refresh = tokio::time::sleep(tokio::time::Duration::from_secs(3));
-    let play_song = tokio::time::sleep(tokio::time::Duration::from_secs(15));
+    let play_song = tokio::time::sleep(tokio::time::Duration::from_secs(1));
 
     tokio::pin!(refresh);
     tokio::pin!(play_song);
@@ -73,7 +74,7 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
                 refresh.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_secs(3));
             }
             _ = &mut play_song => {
-                let time = play_next_song(db.clone(), spotify.clone(), room_id.clone()).await.unwrap_or(15000);
+                let time = play_next_song(db.clone(), spotify.clone(), room_id.clone()).await.unwrap_or(1000);
                 play_song.as_mut().reset(tokio::time::Instant::now() + tokio::time::Duration::from_millis(time));
             }
         }

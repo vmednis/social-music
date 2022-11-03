@@ -74,7 +74,6 @@ pub async fn connected(
             let mut db = inner_db.lock().await;
             db.add_presence(inner_room_id.clone(), inner_user_id.clone())
                 .await;
-            db.push_queue(inner_room_id.clone(), inner_user_id.clone()).await; //TODO: Use presence instead
             std::mem::drop(db);
 
             loop {
@@ -99,7 +98,6 @@ pub async fn connected(
             let mut db = inner_db.lock().await;
             db.remove_presence(inner_room_id.clone(), inner_user_id.clone())
                 .await;
-            db.rem_queue(inner_room_id.clone(), inner_user_id.clone()).await; //TODO: Use presence instead
         });
 
         //Receive messages from the client
@@ -137,7 +135,7 @@ async fn on_message(
     db: db::Db,
     room_id: String,
     user_id: String,
-    spotify: spotify::Spotify,
+    _spotify: spotify::Spotify,
     message: String,
 ) {
     let message: data_in::Message = serde_json::from_str(&message).unwrap();
@@ -157,20 +155,13 @@ async fn on_message(
             let mut db = db.lock().await;
             db.set_device(user_id, set_device.device_id).await;
         }
-        data_in::Message::PlaySong(play_song) => {
-            let mut db = db.lock().await;
-            let token = db.get_auth(user_id.clone()).await.unwrap();
-            let device_id = db.get_device(user_id.clone()).await.unwrap();
-            std::mem::drop(db);
-
-            let spotify = spotify.lock().await;
-            spotify
-                .request_play(token, device_id, play_song.track_id, 0)
-                .await;
-        }
         data_in::Message::QueueSong(queue_song) => {
             let mut db = db.lock().await;
             db.push_user_queue(room_id.clone(), user_id.clone(), queue_song.track_id).await;
+        }
+        data_in::Message::JoinQueue => {
+            let mut db = db.lock().await;
+            db.push_queue(room_id.clone(), user_id.clone()).await;
         }
     };
 }
@@ -199,11 +190,6 @@ mod data_in {
     }
 
     #[derive(Debug, Serialize, Deserialize)]
-    pub struct PlaySong {
-        pub track_id: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
     pub struct QueueSong {
         pub track_id: String,
     }
@@ -212,7 +198,7 @@ mod data_in {
     pub enum Message {
         ChatMessage(ChatMessage),
         SetDevice(SetDevice),
-        PlaySong(PlaySong),
         QueueSong(QueueSong),
+        JoinQueue,
     }
 }
