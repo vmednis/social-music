@@ -43,7 +43,12 @@ impl DbInternal {
 
     fn enable_keyspace_events(&self) {
         let mut con = self.client.get_connection().unwrap();
-        let _: () = redis::cmd("CONFIG").arg("set").arg("notify-keyspace-events").arg("Knxg").query(&mut con).unwrap();
+        let _: () = redis::cmd("CONFIG")
+            .arg("set")
+            .arg("notify-keyspace-events")
+            .arg("Knxg")
+            .query(&mut con)
+            .unwrap();
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::db;
-use crate::spotify;
 use crate::db::presence::PresenceEventActivty;
+use crate::spotify;
 
 pub async fn start_listener(db: db::Db, spotify: spotify::Spotify) {
     tokio::task::spawn(async move {
@@ -29,7 +29,8 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
         db.del_presences(inner_room_id.clone()).await;
 
         for user_id in users {
-            db.add_presences(inner_room_id.clone(), user_id.clone()).await;
+            db.add_presences(inner_room_id.clone(), user_id.clone())
+                .await;
         }
         std::mem::drop(db);
 
@@ -116,19 +117,34 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
 async fn play_next_song(db: db::Db, spotify: spotify::Spotify, room_id: String) -> Option<u64> {
     let mut inner_db = db.lock().await;
     if let Some(next_user_id) = inner_db.pop_queue(room_id.clone()).await {
-        if let Some(uri) = inner_db.pop_user_queue(room_id.clone(), next_user_id.clone()).await {
+        if let Some(uri) = inner_db
+            .pop_user_queue(room_id.clone(), next_user_id.clone())
+            .await
+        {
             let token = inner_db.get_auth(next_user_id.clone()).await.unwrap();
             let users = inner_db.list_presences(room_id.clone()).await;
             inner_db.push_queue(room_id.clone(), next_user_id).await;
             std::mem::drop(inner_db);
 
             let inner_spotify = spotify.lock().await;
-            let track = inner_spotify.request_track(token.clone(), uri.clone()).await;
+            let track = inner_spotify
+                .request_track(token.clone(), uri.clone())
+                .await;
             std::mem::drop(inner_spotify);
 
             let mut inner_db = db.lock().await;
-            let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
-            inner_db.set_playing(room_id.clone(), uri.clone(), time, track.duration_ms.clone()).await;
+            let time = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            inner_db
+                .set_playing(
+                    room_id.clone(),
+                    uri.clone(),
+                    time,
+                    track.duration_ms.clone(),
+                )
+                .await;
             std::mem::drop(inner_db);
 
             for user_id in users {
@@ -144,7 +160,13 @@ async fn play_next_song(db: db::Db, spotify: spotify::Spotify, room_id: String) 
     }
 }
 
-async fn play_song(db: db::Db, spotify: spotify::Spotify, user_id: String, uri: String, position: u32) {
+async fn play_song(
+    db: db::Db,
+    spotify: spotify::Spotify,
+    user_id: String,
+    uri: String,
+    position: u32,
+) {
     let mut db = db.lock().await;
     let token = db.get_auth(user_id.clone()).await.unwrap();
     let device_id = db.get_device(user_id.clone()).await.unwrap();
@@ -154,14 +176,21 @@ async fn play_song(db: db::Db, spotify: spotify::Spotify, user_id: String, uri: 
     spotify.request_play(token, device_id, uri, position).await;
 }
 
-//TODO: Do it on device ready
-async fn play_song_on_sync(db: db::Db, spotify: spotify::Spotify, room_id: String, user_id: String) {
+async fn play_song_on_sync(
+    db: db::Db,
+    spotify: spotify::Spotify,
+    room_id: String,
+    user_id: String,
+) {
     let mut inner_db = db.lock().await;
     let playing = inner_db.get_playing(room_id).await;
     std::mem::drop(inner_db);
 
     if let Some(playing) = playing {
-        let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
 
         if time < playing.start_time + u128::from(playing.length) {
             let offset = u32::try_from(time - playing.start_time).unwrap();

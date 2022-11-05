@@ -112,19 +112,14 @@ impl Message {
     pub fn chat_message(from: String, message: String) -> Self {
         Self {
             id: None,
-            data: MessageType::MessageChat(MessageChat{
-                from,
-                message,
-            })
+            data: MessageType::MessageChat(MessageChat { from, message }),
         }
     }
 
     pub fn device_change(user_id: String) -> Self {
         Self {
             id: None,
-            data: MessageType::MessageDeviceChange(MessageDeviceChange{
-                user_id
-            })
+            data: MessageType::MessageDeviceChange(MessageDeviceChange { user_id }),
         }
     }
 }
@@ -138,7 +133,7 @@ impl Into<Vec<(String, String)>> for Message {
                 args.push(("type".to_string(), "MessageChat".to_string()));
                 args.push(("from".to_string(), data.from));
                 args.push(("message".to_string(), data.message));
-            },
+            }
             MessageType::MessageDeviceChange(data) => {
                 args.push(("type".to_string(), "MessageDeviceChange".to_string()));
                 args.push(("user_id".to_string(), data.user_id));
@@ -162,21 +157,16 @@ impl TryFrom<&redis::streams::StreamId> for Message {
                 let from = db::util::read_redis_stream_data(stream_id, "from")?;
                 let message = db::util::read_redis_stream_data(stream_id, "message")?;
 
-                Ok(MessageType::MessageChat(MessageChat{
-                    from,
-                    message,
-                }))
-            },
+                Ok(MessageType::MessageChat(MessageChat { from, message }))
+            }
             "MessageDeviceChange" => {
                 let user_id = db::util::read_redis_stream_data(stream_id, "user_id")?;
 
-                Ok(MessageType::MessageDeviceChange(MessageDeviceChange{
+                Ok(MessageType::MessageDeviceChange(MessageDeviceChange {
                     user_id,
                 }))
-            },
-            _ => {
-                Err("Tried to read non existing message data type")
             }
+            _ => Err("Tried to read non existing message data type"),
         }?;
 
         Ok(Message { id, data })

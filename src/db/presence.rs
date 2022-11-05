@@ -35,7 +35,10 @@ impl db::DbInternal {
 
     pub async fn scan_presence(&mut self, room_id: String) -> Vec<String> {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let iter = con.scan_match(Self::key_presence(room_id, "*".to_string())).await.unwrap();
+        let iter = con
+            .scan_match(Self::key_presence(room_id, "*".to_string()))
+            .await
+            .unwrap();
         iter.map(|key| Self::rkey_presence(key)).collect().await
     }
 
@@ -50,12 +53,18 @@ impl db::DbInternal {
 
     pub async fn add_presences(&mut self, room_id: String, user_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.sadd(Self::key_presences(room_id), user_id).await.unwrap();
+        let _: () = con
+            .sadd(Self::key_presences(room_id), user_id)
+            .await
+            .unwrap();
     }
 
     pub async fn rem_presences(&mut self, room_id: String, user_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.srem(Self::key_presences(room_id), user_id).await.unwrap();
+        let _: () = con
+            .srem(Self::key_presences(room_id), user_id)
+            .await
+            .unwrap();
     }
 
     pub async fn list_presences(&mut self, room_id: String) -> Vec<String> {
@@ -65,17 +74,30 @@ impl db::DbInternal {
     }
 
     fn key_presence_keyspace(room_id: String) -> String {
-        format!("__keyspace*__:{}", Self::key_presence(room_id, "*".to_string()))
+        format!(
+            "__keyspace*__:{}",
+            Self::key_presence(room_id, "*".to_string())
+        )
     }
 
-    pub async fn subscribe_presence(&mut self, room_id: String) -> tokio::sync::mpsc::Receiver<PresenceEvent>{
+    pub async fn subscribe_presence(
+        &mut self,
+        room_id: String,
+    ) -> tokio::sync::mpsc::Receiver<PresenceEvent> {
         let (tx, rx) = tokio::sync::mpsc::channel(5);
 
-        let con = self.blockable_client().get_async_connection().await.unwrap();
+        let con = self
+            .blockable_client()
+            .get_async_connection()
+            .await
+            .unwrap();
 
         tokio::task::spawn(async move {
             let mut pubsub = con.into_pubsub();
-            pubsub.psubscribe(Self::key_presence_keyspace(room_id)).await.unwrap();
+            pubsub
+                .psubscribe(Self::key_presence_keyspace(room_id))
+                .await
+                .unwrap();
             let mut stream = pubsub.on_message();
 
             loop {
@@ -84,15 +106,12 @@ impl db::DbInternal {
                     "new" => Some(PresenceEventActivty::Join),
                     "del" => Some(PresenceEventActivty::Leave),
                     "expired" => Some(PresenceEventActivty::Leave),
-                    _ => None
+                    _ => None,
                 };
 
                 if let Some(activity) = activity {
                     let user_id = Self::rkey_presence(message.get_channel_name().to_string());
-                    let event = PresenceEvent {
-                        user_id,
-                        activity
-                    };
+                    let event = PresenceEvent { user_id, activity };
 
                     tx.send(event).await.unwrap();
                 }
@@ -106,7 +125,7 @@ impl db::DbInternal {
 #[derive(Debug)]
 pub enum PresenceEventActivty {
     Join,
-    Leave
+    Leave,
 }
 
 #[derive(Debug)]

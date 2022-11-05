@@ -167,7 +167,8 @@ async fn on_message(
         }
         data_in::Message::QueueSong(queue_song) => {
             let mut db = db.lock().await;
-            db.push_user_queue(room_id.clone(), user_id.clone(), queue_song.track_id).await;
+            db.push_user_queue(room_id.clone(), user_id.clone(), queue_song.track_id)
+                .await;
         }
         data_in::Message::JoinQueue => {
             let mut db = db.lock().await;

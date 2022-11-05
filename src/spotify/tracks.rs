@@ -41,10 +41,7 @@ impl spotify::SpotifyRequest for SpotfiyRequestTrack {
 
 impl spotify::SpotifyInternal {
     pub async fn request_track(&self, token: String, track_id: String) -> Track {
-        let req = SpotfiyRequestTrack{
-            token,
-            track_id,
-        };
+        let req = SpotfiyRequestTrack { token, track_id };
 
         Self::request(&self, req).await.unwrap()
     }
