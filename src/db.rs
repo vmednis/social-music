@@ -6,6 +6,7 @@ use warp::Filter;
 pub mod auth;
 pub mod device;
 pub mod message;
+pub mod playing;
 pub mod presence;
 pub mod queue;
 pub mod room;

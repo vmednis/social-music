@@ -27,8 +27,19 @@ pub async fn connected(
                 msg = db_rx.recv() => {
                     match msg {
                         Some(message) => {
-                            let json = serde_json::to_string(&data_out::Message::ChatMessage(message)).unwrap();
-                            ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
+                            match message.data {
+                                db::message::MessageType::MessageChat(data) => {
+                                    let data = data_out::ChatMessage{
+                                        id: message.id.unwrap(),
+                                        from: data.from,
+                                        message: data.message,
+                                    };
+                                    let message = data_out::Message::ChatMessage(data);
+                                    let json = serde_json::to_string(&message).unwrap();
+                                    ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
+                                },
+                                _ => ()
+                            }
                         },
                         _ => {
                             log::info!("Database subscription in handle_chat_connected died");
@@ -39,12 +50,12 @@ pub async fn connected(
                 msg = system_rx.recv() => {
                     match msg {
                         Some(message) => {
-                            let message = data_out::Message::ChatMessage(db::message::Message{
-                                id: None,
+                            let data = data_out::ChatMessage{
+                                id: "".to_string(),
                                 from: "system".to_string(),
                                 message,
-                            });
-
+                            };
+                            let message = data_out::Message::ChatMessage(data);
                             let json = serde_json::to_string(&message).unwrap();
                             ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
                         },
@@ -142,18 +153,17 @@ async fn on_message(
 
     match message {
         data_in::Message::ChatMessage(chat_message) => {
-            let message = db::message::Message {
-                id: None,
-                from: user_id.clone(),
-                message: chat_message.message,
-            };
+            let message = db::message::Message::chat_message(user_id.clone(), chat_message.message);
 
             let mut db = db.lock().await;
             db.add_message(room_id.clone(), message).await;
         }
         data_in::Message::SetDevice(set_device) => {
+            let message = db::message::Message::device_change(user_id.clone());
+
             let mut db = db.lock().await;
             db.set_device(user_id, set_device.device_id).await;
+            db.add_message(room_id, message).await;
         }
         data_in::Message::QueueSong(queue_song) => {
             let mut db = db.lock().await;
@@ -167,12 +177,18 @@ async fn on_message(
 }
 
 mod data_out {
-    use crate::db;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize)]
+    pub struct ChatMessage {
+        pub id: String,
+        pub from: String,
+        pub message: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
     pub enum Message {
-        ChatMessage(db::message::Message),
+        ChatMessage(ChatMessage),
     }
 }
 

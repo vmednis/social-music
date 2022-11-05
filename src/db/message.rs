@@ -86,17 +86,64 @@ impl db::DbInternal {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Message {
-    pub id: Option<String>,
+pub struct MessageChat {
     pub from: String,
     pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MessageDeviceChange {
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum MessageType {
+    MessageChat(MessageChat),
+    MessageDeviceChange(MessageDeviceChange),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Message {
+    pub id: Option<String>,
+    pub data: MessageType,
+}
+
+impl Message {
+    pub fn chat_message(from: String, message: String) -> Self {
+        Self {
+            id: None,
+            data: MessageType::MessageChat(MessageChat{
+                from,
+                message,
+            })
+        }
+    }
+
+    pub fn device_change(user_id: String) -> Self {
+        Self {
+            id: None,
+            data: MessageType::MessageDeviceChange(MessageDeviceChange{
+                user_id
+            })
+        }
+    }
 }
 
 impl Into<Vec<(String, String)>> for Message {
     fn into(self) -> Vec<(String, String)> {
         let mut args: Vec<(String, String)> = Vec::new();
-        args.push(("from".to_string(), self.from));
-        args.push(("message".to_string(), self.message));
+
+        match self.data {
+            MessageType::MessageChat(data) => {
+                args.push(("type".to_string(), "MessageChat".to_string()));
+                args.push(("from".to_string(), data.from));
+                args.push(("message".to_string(), data.message));
+            },
+            MessageType::MessageDeviceChange(data) => {
+                args.push(("type".to_string(), "MessageDeviceChange".to_string()));
+                args.push(("user_id".to_string(), data.user_id));
+            }
+        }
 
         args
     }
@@ -108,9 +155,30 @@ impl TryFrom<&redis::streams::StreamId> for Message {
     fn try_from(stream_id: &redis::streams::StreamId) -> Result<Self, Self::Error> {
         let id = Some(stream_id.id.clone());
 
-        let from = db::util::read_redis_stream_data(stream_id, "from")?;
-        let message = db::util::read_redis_stream_data(stream_id, "message")?;
+        let message_type = db::util::read_redis_stream_data(stream_id, "type")?;
 
-        Ok(Message { id, from, message })
+        let data = match message_type.as_str() {
+            "MessageChat" => {
+                let from = db::util::read_redis_stream_data(stream_id, "from")?;
+                let message = db::util::read_redis_stream_data(stream_id, "message")?;
+
+                Ok(MessageType::MessageChat(MessageChat{
+                    from,
+                    message,
+                }))
+            },
+            "MessageDeviceChange" => {
+                let user_id = db::util::read_redis_stream_data(stream_id, "user_id")?;
+
+                Ok(MessageType::MessageDeviceChange(MessageDeviceChange{
+                    user_id,
+                }))
+            },
+            _ => {
+                Err("Tried to read non existing message data type")
+            }
+        }?;
+
+        Ok(Message { id, data })
     }
 }
