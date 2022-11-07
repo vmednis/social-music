@@ -20,6 +20,9 @@ pub fn routes(
         .and(spotify::with(spotify.clone()))
         .and(db::with(db.clone()))
         .and_then(endpoint::get_authorize);
+    let logout = warp::path("logout")
+        .and(warp::get())
+        .and_then(endpoint::get_logout);
     let chat = warp::path!("chat" / String)
         .and(cookie::with_user())
         .and(db::with(db.clone()))
@@ -45,6 +48,7 @@ pub fn routes(
 
     login
         .or(authorize)
+        .or(logout)
         .or(test)
         .or(token)
         .or(chat)

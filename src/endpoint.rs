@@ -63,6 +63,13 @@ pub async fn get_authorize(
     Ok(reply)
 }
 
+pub async fn get_logout() -> Result<impl Reply, Infallible> {
+    let redirect = warp::redirect::see_other(warp::http::Uri::from_static("/"));
+    let reply = warp::reply::with_header(redirect, "Set-Cookie", "userid=expired; expires=Thu, 01 Jan 1970 00:00:00 GMT");
+
+    Ok(reply)
+}
+
 pub async fn post_room_new(
     user_id: String,
     db: Db,

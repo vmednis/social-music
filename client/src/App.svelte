@@ -17,10 +17,14 @@
 <Router>
 {#if is_logged_in}
   <div class="h-screen max-h-screen w-screen flex flex-col overflow-hidden">
-    <header class="bg-zinc-700 text-white w-screen p-2 grow-0">
+    <header class="bg-zinc-700 text-white w-screen p-2 grow-0 flex flex-row justify-between">
       <ul class="flex flex-row">
         <li><Link to="" class="p-2 hover:bg-zinc-500">Home</Link></li>
         <li><Link to="/room/new" class="p-2 hover:bg-zinc-500">New Room</Link></li>
+      </ul>
+      <ul></ul>
+      <ul class="flex flex-row">
+        <li><a href="/logout" class="p-2 hover:bg-zinc-500">Log out</a></li>
       </ul>
     </header>
     <main class="flex-auto min-h-0">
