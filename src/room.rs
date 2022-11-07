@@ -1,5 +1,6 @@
 use crate::db;
 use crate::db::presence::PresenceEventActivty;
+use crate::db::message::Message;
 use crate::spotify;
 
 pub async fn start_listener(db: db::Db, spotify: spotify::Spotify) {
@@ -31,6 +32,7 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
         for user_id in users {
             db.add_presences(inner_room_id.clone(), user_id.clone())
                 .await;
+            db.add_message(inner_room_id.clone(), Message::presence_changed()).await;
         }
         std::mem::drop(db);
 
@@ -43,10 +45,12 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
                             match event.activity {
                                 PresenceEventActivty::Join => {
                                     db.add_presences(inner_room_id.clone(), event.user_id.clone()).await;
+                                    db.add_message(inner_room_id.clone(), Message::presence_changed()).await;
                                 },
                                 PresenceEventActivty::Leave => {
                                     db.rem_presences(inner_room_id.clone(), event.user_id.clone()).await;
                                     db.rem_queue(inner_room_id.clone(), event.user_id).await;
+                                    db.add_message(inner_room_id.clone(), Message::presence_changed()).await;
                                 }
                             }
                         },
@@ -145,6 +149,7 @@ async fn play_next_song(db: db::Db, spotify: spotify::Spotify, room_id: String) 
                     track.duration_ms.clone(),
                 )
                 .await;
+            inner_db.add_message(room_id.clone(), Message::queue_changed()).await;
             std::mem::drop(inner_db);
 
             for user_id in users {

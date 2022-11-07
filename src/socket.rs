@@ -1,5 +1,6 @@
 use crate::db;
 use crate::spotify;
+use crate::db::message::Message;
 use futures_util::{SinkExt, StreamExt};
 use warp::ws::WebSocket;
 
@@ -19,7 +20,7 @@ pub async fn connected(
     let (system_tx, mut system_rx) = tokio::sync::mpsc::channel(1);
     tokio::task::spawn(async move {
         let mut db = inner_db.lock().await;
-        let mut db_rx = db.subscribe_messages(inner_room_id).await;
+        let mut db_rx = db.subscribe_messages(inner_room_id.clone()).await;
         std::mem::drop(db);
 
         loop {
@@ -29,12 +30,26 @@ pub async fn connected(
                         Some(message) => {
                             match message.data {
                                 db::message::MessageType::MessageChat(data) => {
-                                    let data = data_out::ChatMessage{
+                                    let data = data_out::ChatMessage {
                                         id: message.id.unwrap(),
                                         from: data.from,
                                         message: data.message,
                                     };
                                     let message = data_out::Message::ChatMessage(data);
+                                    let json = serde_json::to_string(&message).unwrap();
+                                    ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
+                                },
+                                db::message::MessageType::MessagePresencesChanged | db::message::MessageType::MessageQueueChanged => {
+                                    let mut db = inner_db.lock().await;
+                                    let presences = db.list_presences(inner_room_id.clone()).await;
+                                    let queue = db.list_queue(inner_room_id.clone()).await;
+                                    std::mem::drop(db);
+
+                                    let data = data_out::PresencesQueueMessage {
+                                        queue,
+                                        presences
+                                    };
+                                    let message = data_out::Message::PresencesQueueMessage(data);
                                     let json = serde_json::to_string(&message).unwrap();
                                     ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
                                 },
@@ -153,13 +168,13 @@ async fn on_message(
 
     match message {
         data_in::Message::ChatMessage(chat_message) => {
-            let message = db::message::Message::chat_message(user_id.clone(), chat_message.message);
+            let message = Message::chat_message(user_id.clone(), chat_message.message);
 
             let mut db = db.lock().await;
             db.add_message(room_id.clone(), message).await;
         }
         data_in::Message::SetDevice(set_device) => {
-            let message = db::message::Message::device_change(user_id.clone());
+            let message = Message::device_change(user_id.clone());
 
             let mut db = db.lock().await;
             db.set_device(user_id, set_device.device_id).await;
@@ -173,6 +188,7 @@ async fn on_message(
         data_in::Message::JoinQueue => {
             let mut db = db.lock().await;
             db.push_queue(room_id.clone(), user_id.clone()).await;
+            db.add_message(room_id, Message::queue_changed()).await;
         }
     };
 }
@@ -188,8 +204,15 @@ mod data_out {
     }
 
     #[derive(Debug, Serialize, Deserialize)]
+    pub struct PresencesQueueMessage {
+        pub queue: Vec<String>,
+        pub presences: Vec<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
     pub enum Message {
         ChatMessage(ChatMessage),
+        PresencesQueueMessage(PresencesQueueMessage),
     }
 }
 

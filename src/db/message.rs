@@ -100,6 +100,8 @@ pub struct MessageDeviceChange {
 pub enum MessageType {
     MessageChat(MessageChat),
     MessageDeviceChange(MessageDeviceChange),
+    MessagePresencesChanged,
+    MessageQueueChanged,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -122,6 +124,20 @@ impl Message {
             data: MessageType::MessageDeviceChange(MessageDeviceChange { user_id }),
         }
     }
+
+    pub fn presence_changed() -> Self {
+        Self {
+            id: None,
+            data: MessageType::MessagePresencesChanged,
+        }
+    }
+
+    pub fn queue_changed() -> Self {
+        Self {
+            id: None,
+            data: MessageType::MessageQueueChanged,
+        }
+    }
 }
 
 impl Into<Vec<(String, String)>> for Message {
@@ -137,6 +153,12 @@ impl Into<Vec<(String, String)>> for Message {
             MessageType::MessageDeviceChange(data) => {
                 args.push(("type".to_string(), "MessageDeviceChange".to_string()));
                 args.push(("user_id".to_string(), data.user_id));
+            }
+            MessageType::MessagePresencesChanged => {
+                args.push(("type".to_string(), "MessagePresencesChanged".to_string()));
+            }
+            MessageType::MessageQueueChanged => {
+                args.push(("type".to_string(), "MessageQueueChanged".to_string()));
             }
         }
 
@@ -165,6 +187,12 @@ impl TryFrom<&redis::streams::StreamId> for Message {
                 Ok(MessageType::MessageDeviceChange(MessageDeviceChange {
                     user_id,
                 }))
+            }
+            "MessagePresencesChanged" => {
+                Ok(MessageType::MessagePresencesChanged)
+            }
+            "MessageQueueChanged" => {
+                Ok(MessageType::MessageQueueChanged)
             }
             _ => Err("Tried to read non existing message data type"),
         }?;

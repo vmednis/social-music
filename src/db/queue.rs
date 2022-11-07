@@ -25,6 +25,11 @@ impl db::DbInternal {
         con.lpop(Self::key_queue(room_id), None).await.unwrap()
     }
 
+    pub async fn list_queue(&mut self, room_id: String) -> Vec<String> {
+        let mut con = self.client.get_async_connection().await.unwrap();
+        con.lrange(Self::key_queue(room_id), 0, -1).await.unwrap()
+    }
+
     fn key_user_queue(room_id: String, user_id: String) -> String {
         format!("{}:{}", Self::key_queue(room_id), user_id)
     }

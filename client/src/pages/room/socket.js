@@ -4,7 +4,9 @@ function createSocket() {
   const { subscribe, update } = writable({
     ws: null,
     ready: false,
-    messages: []
+    messages: [],
+    queue: [],
+    presences: [],
   });
 
   const init = (roomId) => {
@@ -22,6 +24,13 @@ function createSocket() {
       if(message.ChatMessage) {
         update((data) => {
           data.messages.push(message.ChatMessage)
+          return data;
+        });
+      }
+      if(message.PresencesQueueMessage) {
+        update((data) => {
+          data.queue = message.PresencesQueueMessage.queue;
+          data.presences = message.PresencesQueueMessage.presences;
           return data;
         });
       }
