@@ -161,9 +161,11 @@ async fn play_next_song(db: db::Db, spotify: spotify::Spotify, room_id: String) 
 
             Some(track.duration_ms)
         } else {
+            inner_db.add_message(room_id.clone(), Message::queue_changed()).await;
             None
         }
     } else {
+        inner_db.add_message(room_id.clone(), Message::queue_changed()).await;
         None
     }
 }
