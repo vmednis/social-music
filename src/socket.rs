@@ -1,6 +1,6 @@
 use crate::db;
-use crate::spotify;
 use crate::db::message::Message;
+use crate::spotify;
 use futures_util::{SinkExt, StreamExt};
 use warp::ws::WebSocket;
 

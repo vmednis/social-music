@@ -1,8 +1,9 @@
+use crate::db::auth::Auth;
 use crate::spotify;
 use serde::Deserialize;
 
 struct SpotfiyRequestTrack {
-    token: String,
+    token: Auth,
     track_id: String,
 }
 
@@ -22,7 +23,7 @@ impl spotify::SpotifyRequest for SpotfiyRequestTrack {
         false
     }
 
-    fn token(&self) -> Option<String> {
+    fn token(&self) -> Option<Auth> {
         Some(self.token.clone())
     }
 
@@ -40,7 +41,7 @@ impl spotify::SpotifyRequest for SpotfiyRequestTrack {
 }
 
 impl spotify::SpotifyInternal {
-    pub async fn request_track(&self, token: String, track_id: String) -> Track {
+    pub async fn request_track(&self, token: Auth, track_id: String) -> Track {
         let req = SpotfiyRequestTrack { token, track_id };
 
         Self::request(&self, req).await.unwrap()

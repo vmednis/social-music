@@ -17,7 +17,7 @@ pub async fn get_token(user_id: String, db: Db) -> Result<impl Reply, Infallible
     let mut db = db.lock().await;
     let key = db.get_auth(user_id.clone()).await;
     let token = key.unwrap();
-    Ok(format!("{}", token))
+    Ok(format!("{}", token.access_token))
 }
 
 pub async fn get_login() -> Result<impl Reply, Infallible> {
@@ -48,12 +48,21 @@ pub async fn get_authorize(
 
     let spotify = spotify.lock().await;
     let token = spotify.request_auth_new(code.clone(), return_url).await;
-    let user = spotify.request_me(token.access_token.clone()).await;
+    let user = spotify
+        .request_me(db::auth::Auth {
+            access_token: token.access_token.clone(),
+            refresh_token: token.refresh_token.clone(),
+        })
+        .await;
     std::mem::drop(spotify);
 
     let mut db = db.lock().await;
-    db.set_auth(user.uri.clone(), token.access_token.clone())
-        .await;
+    db.set_auth(
+        user.uri.clone(),
+        token.access_token.clone(),
+        token.refresh_token.clone(),
+    )
+    .await;
     std::mem::drop(db);
 
     let cookie = cookie::gen_user(user.uri);
@@ -65,7 +74,11 @@ pub async fn get_authorize(
 
 pub async fn get_logout() -> Result<impl Reply, Infallible> {
     let redirect = warp::redirect::see_other(warp::http::Uri::from_static("/"));
-    let reply = warp::reply::with_header(redirect, "Set-Cookie", "userid=expired; expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    let reply = warp::reply::with_header(
+        redirect,
+        "Set-Cookie",
+        "userid=expired; expires=Thu, 01 Jan 1970 00:00:00 GMT",
+    );
 
     Ok(reply)
 }

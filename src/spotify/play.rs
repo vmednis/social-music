@@ -1,8 +1,9 @@
+use crate::db::auth::Auth;
 use crate::spotify;
 use serde::Serialize;
 
 struct SpotifyRequestPlay {
-    token: String,
+    token: Auth,
     device_id: String,
     uri: String,
     position: u32,
@@ -26,7 +27,7 @@ impl spotify::SpotifyRequest for SpotifyRequestPlay {
         false
     }
 
-    fn token(&self) -> Option<String> {
+    fn token(&self) -> Option<Auth> {
         Some(self.token.clone())
     }
 
@@ -48,7 +49,7 @@ impl spotify::SpotifyRequest for SpotifyRequestPlay {
 }
 
 impl spotify::SpotifyInternal {
-    pub async fn request_play(&self, token: String, device_id: String, uri: String, position: u32) {
+    pub async fn request_play(&self, token: Auth, device_id: String, uri: String, position: u32) {
         let req = SpotifyRequestPlay {
             token,
             device_id,

@@ -1,3 +1,4 @@
+use crate::db::auth::Auth;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
@@ -60,7 +61,7 @@ impl SpotifyInternal {
         }
 
         if let Some(token) = request.token() {
-            builder = builder.bearer_auth(token);
+            builder = builder.bearer_auth(token.access_token);
         }
 
         if let Some(data) = request.form_data() {
@@ -93,7 +94,7 @@ trait SpotifyRequest {
     fn endpoint(&self) -> String;
     fn method(&self) -> SpotifyMethod;
     fn basic_auth(&self) -> bool;
-    fn token(&self) -> Option<String>;
+    fn token(&self) -> Option<Auth>;
     fn form_data(&self) -> Option<Vec<(&str, &str)>>;
     fn json_data(&self) -> Option<Self::JSONDataType>;
     fn has_result(&self) -> bool;

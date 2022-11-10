@@ -188,12 +188,8 @@ impl TryFrom<&redis::streams::StreamId> for Message {
                     user_id,
                 }))
             }
-            "MessagePresencesChanged" => {
-                Ok(MessageType::MessagePresencesChanged)
-            }
-            "MessageQueueChanged" => {
-                Ok(MessageType::MessageQueueChanged)
-            }
+            "MessagePresencesChanged" => Ok(MessageType::MessagePresencesChanged),
+            "MessageQueueChanged" => Ok(MessageType::MessageQueueChanged),
             _ => Err("Tried to read non existing message data type"),
         }?;
 

@@ -1,3 +1,4 @@
+use crate::db::auth::Auth;
 use crate::spotify;
 use serde::{Deserialize, Serialize};
 
@@ -21,7 +22,7 @@ impl spotify::SpotifyRequest for SpotifyRequestAuthNew {
         true
     }
 
-    fn token(&self) -> Option<String> {
+    fn token(&self) -> Option<Auth> {
         None
     }
 
@@ -58,5 +59,5 @@ pub struct AccessToken {
     pub token_type: String,
     pub scope: Option<String>,
     pub expires_in: u32,
-    pub refresh_token: Option<String>,
+    pub refresh_token: String,
 }
