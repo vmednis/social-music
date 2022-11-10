@@ -49,14 +49,16 @@ impl SpotifyInternal {
     }
 
     async fn request<T: DeserializeOwned>(&self, request: impl SpotifyRequest) -> Option<T> {
-        let mut response = self.perform_request(&request).await;
+        let response = self.perform_request(&request).await;
 
-        if request.token().is_some() && response.status() == 401 {
+        let response = if request.token().is_some() && response.status() == 401 {
             //Bad or expired token, try refreshing it
             log::info!("Refreshing token!!!!!");
             self.refresh_token(request.token().unwrap()).await;
-            response = self.perform_request(&request).await;
-        }
+            self.perform_request(&request).await
+        } else {
+            response
+        };
 
         if request.has_result() {
             Some(response.json().await.unwrap())
