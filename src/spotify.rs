@@ -1,4 +1,4 @@
-use crate::db::auth::Auth;
+use crate::db::{Db, auth::Auth};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
@@ -13,8 +13,8 @@ mod tracks;
 
 pub type Spotify = Arc<Mutex<SpotifyInternal>>;
 
-pub fn init() -> Spotify {
-    Arc::new(Mutex::new(SpotifyInternal::init()))
+pub fn init(db: Db) -> Spotify {
+    Arc::new(Mutex::new(SpotifyInternal::init(db)))
 }
 
 pub fn with(
@@ -27,10 +27,11 @@ pub struct SpotifyInternal {
     client_id: String,
     client_secret: String,
     http_client: Client,
+    db: Db,
 }
 
 impl SpotifyInternal {
-    fn init() -> Self {
+    fn init(db: Db) -> Self {
         let client_id = std::env::var("SPOTIFY_CLIENT_ID").unwrap();
         let client_secret = std::env::var("SPOTIFY_CLIENT_SECRET").unwrap();
 
@@ -43,10 +44,28 @@ impl SpotifyInternal {
             client_id,
             client_secret,
             http_client,
+            db
         }
     }
 
     async fn request<T: DeserializeOwned>(&self, request: impl SpotifyRequest) -> Option<T> {
+        let mut response = self.perform_request(&request).await;
+
+        if request.token().is_some() && response.status() == 401 {
+            //Bad or expired token, try refreshing it
+            log::info!("Refreshing token!!!!!");
+            self.refresh_token(request.token().unwrap()).await;
+            response = self.perform_request(&request).await;
+        }
+
+        if request.has_result() {
+            Some(response.json().await.unwrap())
+        } else {
+            None
+        }
+    }
+
+    async fn perform_request(&self, request: &impl SpotifyRequest) -> reqwest::Response {
         let http_client = &self.http_client;
 
         let endpoint = request.endpoint();
@@ -72,13 +91,17 @@ impl SpotifyInternal {
             builder = builder.json(&data);
         }
 
-        let response = builder.send().await.unwrap();
+        builder.send().await.unwrap()
+    }
 
-        if request.has_result() {
-            Some(response.json().await.unwrap())
-        } else {
-            None
-        }
+    async fn refresh_token(&self, token: Auth) {
+        let data = Self::request_auth_refresh(&self, token.refresh_token.clone()).await;
+
+        let access_token = data.access_token;
+        let refresh_token = data.refresh_token.unwrap_or(token.refresh_token);
+
+        let mut db = self.db.lock().await;
+        db.set_auth(token.user_id.unwrap(), access_token, refresh_token).await;
     }
 }
 

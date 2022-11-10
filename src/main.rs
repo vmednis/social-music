@@ -11,7 +11,7 @@ async fn main() {
     env_logger::init();
 
     let db = db::connect_db();
-    let spotify = spotify::init();
+    let spotify = spotify::init(db.clone());
 
     room::start_listener(db.clone(), spotify.clone()).await;
     warp::serve(routes::routes(db, spotify))

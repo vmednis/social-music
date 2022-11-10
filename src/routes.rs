@@ -37,6 +37,7 @@ pub fn routes(
     let token = warp::path("token")
         .and(warp::get())
         .and(cookie::with_user())
+        .and(spotify::with(spotify.clone()))
         .and(db::with(db.clone()))
         .and_then(endpoint::get_token);
     let create_room = warp::path!("room" / "new")

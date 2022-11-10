@@ -22,7 +22,7 @@ impl db::DbInternal {
     pub async fn get_auth(&mut self, user_id: String) -> Option<Auth> {
         let mut con = self.client.get_async_connection().await.unwrap();
         let data: Option<HashMap<String, String>> =
-            con.hgetall(Self::key_auth(user_id)).await.unwrap();
+            con.hgetall(Self::key_auth(user_id.clone())).await.unwrap();
 
         match data {
             Some(data) => {
@@ -30,6 +30,7 @@ impl db::DbInternal {
                 let refresh_token = data.get("refresh_token").unwrap().clone();
 
                 Some(Auth {
+                    user_id: Some(user_id),
                     access_token,
                     refresh_token,
                 })
@@ -41,6 +42,7 @@ impl db::DbInternal {
 
 #[derive(Debug, Clone)]
 pub struct Auth {
+    pub user_id: Option<String>,
     pub access_token: String,
     pub refresh_token: String,
 }

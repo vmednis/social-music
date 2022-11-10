@@ -13,10 +13,18 @@ pub async fn get_test_endpoint(user_id: String, db: Db) -> Result<impl Reply, In
     Ok(format!("Hello, {} your token is {:?}!", user_id, key))
 }
 
-pub async fn get_token(user_id: String, db: Db) -> Result<impl Reply, Infallible> {
-    let mut db = db.lock().await;
-    let key = db.get_auth(user_id.clone()).await;
-    let token = key.unwrap();
+pub async fn get_token(user_id: String, spotify: Spotify, db: Db) -> Result<impl Reply, Infallible> {
+    let mut inner_db = db.lock().await;
+    let token = inner_db.get_auth(user_id.clone()).await.unwrap();
+    std::mem::drop(inner_db);
+
+    //Do a spotify request to see if token is still valid and refresh it if not
+    let spotify = spotify.lock().await;
+    spotify.request_me(token).await;
+    std::mem::drop(spotify);
+
+    let mut inner_db = db.lock().await;
+    let token = inner_db.get_auth(user_id.clone()).await.unwrap();
     Ok(format!("{}", token.access_token))
 }
 
@@ -48,10 +56,13 @@ pub async fn get_authorize(
 
     let spotify = spotify.lock().await;
     let token = spotify.request_auth_new(code.clone(), return_url).await;
+    let access_token = token.access_token;
+    let refresh_token = token.refresh_token.unwrap();
     let user = spotify
         .request_me(db::auth::Auth {
-            access_token: token.access_token.clone(),
-            refresh_token: token.refresh_token.clone(),
+            user_id: None,
+            access_token: access_token.clone(),
+            refresh_token: refresh_token.clone(),
         })
         .await;
     std::mem::drop(spotify);
@@ -59,8 +70,8 @@ pub async fn get_authorize(
     let mut db = db.lock().await;
     db.set_auth(
         user.uri.clone(),
-        token.access_token.clone(),
-        token.refresh_token.clone(),
+        access_token.clone(),
+        refresh_token.clone(),
     )
     .await;
     std::mem::drop(db);
