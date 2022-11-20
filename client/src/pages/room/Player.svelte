@@ -1,6 +1,7 @@
 <script>
   import {onDestroy} from "svelte";
   import { socket } from "./socket.js";
+  import SpotifyLogo from "/src/assets/spotify-icon-black.png";
 
   let ready = false;
   let track = "unknown";
@@ -116,7 +117,8 @@
 
 <div class="grow-0 bg-gray-100">
   <div class="flex w-full">
-    <div class="w-16 h-16 bg-gray-800 mr-2 bg-center bg-cover" style="background-image: url('{cover}')"></div>
+    <div class="w-16 h-16 bg-gray-800 bg-center bg-cover" style="background-image: url('{cover}')"></div>
+    <div class="w-8 h-8 m-4 bg-center bg-cover" style="background-image: url('{SpotifyLogo}')"></div>
     <div class="pt-1">
       {#if ready}
         <b class="text-xl">{track}</b>
