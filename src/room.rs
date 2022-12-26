@@ -82,7 +82,7 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
                     if let Some(message) = message {
                         match message.data {
                             db::message::MessageType::MessageDeviceChange(device_change) => {
-                                play_song_on_sync(inner_db.clone(), inner_spotify.clone(), inner_room_id.clone(), device_change.user_id).await;
+                                play_song_on_join(inner_db.clone(), inner_spotify.clone(), inner_room_id.clone(), device_change.user_id).await;
                             },
                             _ => ()
                         }
@@ -186,12 +186,19 @@ async fn play_song(
     spotify.request_play(token, device_id, uri, position).await;
 }
 
-async fn play_song_on_sync(
+async fn play_song_on_join(
     db: db::Db,
     spotify: spotify::Spotify,
     room_id: String,
     user_id: String,
 ) {
+    //This function is called when the device id changes (i.e. user rejoins the room in the middle of song playback)
+    //since spotify systems are a bit weird there seems to be a race condition where we have a device id, but it hasn't
+    //registered with the rest of the spotify systems. We have to wait a bit. Sleeping for 1 second seemed to be 50/50
+    //chance of it going through, so chose 3 seconds to be safe.
+    //TODO: Replace with a retry loop
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
     let mut inner_db = db.lock().await;
     let playing = inner_db.get_playing(room_id).await;
     std::mem::drop(inner_db);

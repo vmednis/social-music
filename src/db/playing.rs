@@ -30,10 +30,10 @@ impl db::DbInternal {
 
     pub async fn get_playing(&mut self, room_id: String) -> Option<Playing> {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let data: Option<HashMap<String, String>> =
+        let data: HashMap<String, String> =
             con.hgetall(Self::key_playing(room_id)).await.unwrap();
 
-        if let Some(data) = data {
+        if !data.is_empty() {
             let track_id = data.get("track_id").unwrap().clone();
             let start_time = data.get("start_time").unwrap().parse::<u128>().unwrap();
             let length = data.get("length").unwrap().parse::<u64>().unwrap();
