@@ -4,7 +4,7 @@
 
 <div class="w-full max-w-xs h-full max-h-full grow-0">
   <div>
-    <b>Queue:</b>
+    <b>Queue: (use /join)</b>
     <ol>
       {#each $socket.queue as user}
         <li>{user}</li>

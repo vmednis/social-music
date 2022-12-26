@@ -11,7 +11,7 @@
   function onCreateRoom(event) {
     event.preventDefault();
     ready = false;
-    fetch("/room/new", {
+    fetch("/api/v1/rooms", {
       method: "POST",
       headers: {
         "Accept": "application/json",

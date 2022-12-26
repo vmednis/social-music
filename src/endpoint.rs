@@ -94,11 +94,11 @@ pub async fn get_logout() -> Result<impl Reply, Infallible> {
     Ok(reply)
 }
 
-pub async fn post_room_new(
+pub async fn create_room(
     user_id: String,
     db: Db,
     body: HashMap<String, String>,
-) -> Result<impl ::warp::Reply, Infallible> {
+) -> Result<impl warp::Reply, Infallible> {
     let id = body.get("id").unwrap_or(&"".to_string()).clone();
     let title = body.get("title").unwrap_or(&"".to_string()).clone();
 
@@ -112,9 +112,35 @@ pub async fn post_room_new(
     match db.create_room(room).await {
         Ok(_) => {
             let reply: Vec<String> = Vec::new();
-            Ok(warp::reply::json(&reply))
+            let json = warp::reply::json(&reply);
+            Ok(warp::reply::with_status(json, warp::http::StatusCode::CREATED))
         }
-        Err(errors) => Ok(warp::reply::json(&errors)),
+        Err(errors) => {
+            let json = warp::reply::json(&errors);
+            Ok(warp::reply::with_status(json, warp::http::StatusCode::BAD_REQUEST))
+        }
+    }
+}
+
+pub async fn list_rooms(
+    _user_id: String,
+    db: Db,
+) -> Result<warp::reply::Response, Infallible> {
+    let mut db = db.lock().await;
+    let rooms = db.list_rooms().await;
+    Ok(warp::reply::json(&rooms).into_response())
+}
+
+pub async fn get_room(
+    room_id: String,
+    _user_id: String,
+    db: Db,
+) -> Result<warp::reply::Response, Infallible> {
+    let mut db = db.lock().await;
+    let room = db.get_room(room_id).await;
+    match room {
+        Some(room) => Ok(warp::reply::json(&room).into_response()),
+        None => Ok(warp::reply::with_status("Couldn't find room with this id.", warp::http::StatusCode::NOT_FOUND).into_response())
     }
 }
 

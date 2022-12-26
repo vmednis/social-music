@@ -6,6 +6,7 @@ use crate::spotify;
 use crate::spotify::Spotify;
 use std::collections::HashMap;
 use warp::Filter;
+use warp::filters::BoxedFilter;
 
 pub fn routes(
     db: Db,
@@ -40,12 +41,6 @@ pub fn routes(
         .and(spotify::with(spotify.clone()))
         .and(db::with(db.clone()))
         .and_then(endpoint::get_token);
-    let create_room = warp::path!("room" / "new")
-        .and(warp::post())
-        .and(cookie::with_user())
-        .and(db::with(db.clone()))
-        .and(warp::body::json())
-        .and_then(endpoint::post_room_new);
 
     login
         .or(authorize)
@@ -53,11 +48,11 @@ pub fn routes(
         .or(test)
         .or(token)
         .or(chat)
-        .or(create_room)
+        .or(routes_api(db.clone()))
         .or(routes_static())
 }
 
-fn routes_static() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+fn routes_static() -> BoxedFilter<(impl warp::Reply,)> {
     let default = warp::get().and(warp::fs::file("./www/index.html"));
     let assets = warp::path("assets")
         .and(warp::get())
@@ -71,5 +66,49 @@ fn routes_static() -> impl Filter<Extract = impl warp::Reply, Error = warp::Reje
         .and(warp::get())
         .and(warp::fs::file("./www/icon.svg"));
 
-    assets.or(robots).or(icon).or(default)
+    assets.or(robots).or(icon).or(default).boxed()
+}
+
+fn routes_api(
+    db: Db,
+) -> BoxedFilter<(impl warp::Reply,)> {
+    warp::path("api")
+        .and(warp::path("v1"))
+        .and(
+            routes_api_room(db.clone())
+            .or(warp::path::end().map(|| "api")))
+        .boxed()
+}
+
+fn routes_api_room(
+    db: Db,
+) -> BoxedFilter<(impl warp::Reply,)> {
+    //POST /api/v1/rooms
+    let post_room = warp::path::end()
+        .and(warp::post())
+        .and(cookie::with_user())
+        .and(db::with(db.clone()))
+        .and(warp::body::json())
+        .and_then(endpoint::create_room);
+
+    //GET /api/v1/rooms
+    let get_rooms = warp::path::end()
+        .and(warp::get())
+        .and(cookie::with_user())
+        .and(db::with(db.clone()))
+        .and_then(endpoint::list_rooms);
+
+    //GET /api/v1/rooms/{id}
+    let get_room = warp::path::param::<String>()
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(cookie::with_user())
+        .and(db::with(db.clone()))
+        .and_then(endpoint::get_room);
+
+    warp::path("rooms")
+        .and(
+            post_room.or(get_rooms).or(get_room)
+            .or(warp::path::end().map(|| "room")))
+        .boxed()
 }

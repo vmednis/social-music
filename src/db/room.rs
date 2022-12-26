@@ -1,7 +1,8 @@
 use crate::db;
 use redis::{AsyncCommands, Commands};
 use regex::Regex;
-use std::collections::HashSet;
+use serde::{Serialize, Deserialize};
+use std::collections::{HashSet, HashMap};
 
 impl db::DbInternal {
     fn key_room(room_id: String) -> String {
@@ -10,6 +11,10 @@ impl db::DbInternal {
 
     fn key_rooms() -> String {
         format!("rooms")
+    }
+
+    fn key_rooms_free() -> String {
+        format!("rooms_free")
     }
 
     fn key_room_claimed(room_id: String) -> String {
@@ -44,6 +49,7 @@ impl db::DbInternal {
                     errors.push(format!("Room id {} is already taken.", room_id.clone()));
                     Err(errors)
                 } else {
+                    let _: () = con.sadd(Self::key_rooms(), room_id).unwrap();
                     Ok(())
                 }
             }
@@ -56,9 +62,35 @@ impl db::DbInternal {
         con.exists(Self::key_room(room_id)).await.unwrap()
     }
 
+    pub async fn get_room(&mut self, room_id: String) -> Option<Room> {
+        let mut con = self.client.get_async_connection().await.unwrap();
+        let data: Option<HashMap<String, String>> = con.hgetall(Self::key_room(room_id)).await.unwrap();
+        match Room::try_from(data) {
+            Ok(data) => Some(data),
+            Err(e) => {
+                log::debug!("Failed to get room with '{}'", e);
+                None
+            }
+        }
+    }
+
+    pub async fn list_rooms(&mut self) -> Vec<Room> {
+        let mut con = self.client.get_async_connection().await.unwrap();
+        let room_ids: Vec<String> = con.smembers(Self::key_rooms()).await.unwrap();
+        std::mem::drop(con);
+
+        let mut rooms = Vec::new();
+        for room_id in room_ids {
+            //Could be kinda slow, maybe rethink this?
+            rooms.push(self.get_room(room_id).await.unwrap());
+        }
+
+        rooms
+    }
+
     pub async fn offer_room(&mut self, room_id: String) {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let _: () = con.lpush(Self::key_rooms(), room_id).await.unwrap();
+        let _: () = con.lpush(Self::key_rooms_free(), room_id).await.unwrap();
     }
 
     pub async fn claim_room(&mut self) -> tokio::sync::oneshot::Receiver<Option<String>> {
@@ -67,7 +99,7 @@ impl db::DbInternal {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         tokio::task::spawn(async move {
-            let res: Vec<String> = con.blpop(Self::key_rooms(), 5).await.unwrap();
+            let res: Vec<String> = con.blpop(Self::key_rooms_free(), 5).await.unwrap();
 
             let res = if res.is_empty() {
                 //No rooms to be claimed
@@ -116,6 +148,7 @@ impl db::DbInternal {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Room {
     pub id: String,
     pub title: String,
@@ -165,7 +198,23 @@ impl Into<Vec<(String, String)>> for Room {
         let mut args: Vec<(String, String)> = Vec::new();
         args.push(("id".to_string(), self.id));
         args.push(("title".to_string(), self.title));
+        args.push(("owner".to_string(), self.owner));
 
         args
+    }
+}
+
+
+impl TryFrom<Option<HashMap<String, String>>> for Room {
+    type Error = &'static str;
+
+    fn try_from(data: Option<HashMap<String, String>>) -> Result<Self, Self::Error> {
+        let data = data.ok_or("Didn't find room with this id")?;
+
+        let id = data.get("id").ok_or("Missing id field")?.clone();
+        let title = data.get("title").ok_or("Missing title field")?.clone();
+        let owner = data.get("owner").ok_or("Missing owner field")?.clone();
+
+        Ok(Room { id, title, owner })
     }
 }
