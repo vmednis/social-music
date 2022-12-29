@@ -16,7 +16,7 @@
 
 <div class="flex flex-col h-full max-h-full">
   <Player></Player>
-  <div class="flex flex-row h-full max-h-full grow">
+  <div class="flex flex-row h-full max-h-full min-h-0 grow">
     <Search></Search>
     <Chat></Chat>
     <Users></Users>

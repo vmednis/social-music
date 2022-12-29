@@ -9,6 +9,7 @@ use warp::Filter;
 mod auth;
 mod me;
 mod play;
+mod search;
 mod tracks;
 
 pub type Spotify = Arc<Mutex<SpotifyInternal>>;
@@ -61,7 +62,13 @@ impl SpotifyInternal {
         };
 
         if request.has_result() {
-            Some(response.json().await.unwrap())
+            let text = response.text().await.unwrap();
+            let json = serde_json::from_str(&text).or_else(|err| {
+                log::debug!("{}", text);
+                Err(err)
+            });
+
+            Some(json.unwrap())
         } else {
             None
         }

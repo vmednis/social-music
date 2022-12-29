@@ -48,7 +48,7 @@ pub fn routes(
         .or(test)
         .or(token)
         .or(chat)
-        .or(routes_api(db.clone()))
+        .or(routes_api(db.clone(), spotify.clone()))
         .or(routes_static())
 }
 
@@ -71,11 +71,13 @@ fn routes_static() -> BoxedFilter<(impl warp::Reply,)> {
 
 fn routes_api(
     db: Db,
+    spotify: Spotify,
 ) -> BoxedFilter<(impl warp::Reply,)> {
     warp::path("api")
         .and(warp::path("v1"))
         .and(
             routes_api_room(db.clone())
+            .or(routes_api_search(db.clone(), spotify.clone()))
             .or(warp::path::end().map(|| "api")))
         .boxed()
 }
@@ -110,5 +112,23 @@ fn routes_api_room(
         .and(
             post_room.or(get_rooms).or(get_room)
             .or(warp::path::end().map(|| "room")))
+        .boxed()
+}
+
+fn routes_api_search(
+    db: Db,
+    spotify: Spotify
+) -> BoxedFilter<(impl warp::Reply,)> {
+    //GET /api/v1/search?q={query}
+    let get_search = warp::path::end()
+        .and(warp::get())
+        .and(cookie::with_user())
+        .and(db::with(db.clone()))
+        .and(spotify::with(spotify.clone()))
+        .and(warp::query::<HashMap<String, String>>())
+        .and_then(endpoint::get_search);
+
+    warp::path("search")
+        .and(get_search)
         .boxed()
 }

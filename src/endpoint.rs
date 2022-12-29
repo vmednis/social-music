@@ -153,3 +153,38 @@ pub async fn ws_chat(
 ) -> Result<impl warp::Reply, Infallible> {
     Ok(ws.on_upgrade(move |websocket| socket::connected(websocket, room_id, user_id, db, spotify)))
 }
+
+pub async fn get_search(user_id: String, db: Db, spotify: Spotify, query: HashMap<String, String>) -> Result<impl warp::Reply, Infallible> {
+    let query = query.get("q");
+
+    match query {
+        Some(query) => {
+            let mut db = db.lock().await;
+            let token = db.get_auth(user_id).await.unwrap();
+            std::mem::drop(db);
+
+            let spotify = spotify.lock().await;
+            let results = spotify.request_search(token, query.clone(), "track".to_string(), None, Some(20), Some(0), None).await;
+            std::mem::drop(spotify);
+
+            let response: Vec<HashMap<&str, String>> = results.tracks.items.iter().map(|track| {
+                let artists: Vec<String> = track.artists.iter().map(|artist| artist.name.clone()).collect();
+                let mut images: Vec<(u32, String)> = track.album.images.iter().map(|image| (image.width * image.height, image.url.clone())).collect();
+                images.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+                let (_, image) = &images[0];
+
+                let mut track_short = HashMap::new();
+                track_short.insert("name", track.name.clone());
+                track_short.insert("preview_url", track.preview_url.clone().unwrap());
+                track_short.insert("uri", track.uri.clone());
+                track_short.insert("artists", artists.join(", "));
+                track_short.insert("cover", image.clone());
+
+                track_short
+            }).collect();
+
+            Ok(warp::reply::json(&response).into_response())
+        },
+        None => Ok(warp::reply::with_status("Missing query parameter", warp::http::StatusCode::BAD_REQUEST).into_response())
+    }
+}
