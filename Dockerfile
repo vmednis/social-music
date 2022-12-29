@@ -1,5 +1,4 @@
 FROM rust:1.61.0
-SHELL ["/bin/bash", "--login", "-c"]
 
 WORKDIR /usr/src/social-music
 COPY . .
