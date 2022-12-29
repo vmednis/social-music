@@ -1,5 +1,6 @@
 <script>
-  import { socket } from "./socket.js";
+  import RoomQueue from "/src/pages/room/RoomQueue.svelte"
+  import Presences from "/src/pages/room/Presences.svelte"
 
   let showQueue = true;
   let showPresences = false;
@@ -20,25 +21,13 @@
 
 <div class="w-full max-w-xs h-full max-h-full grow-0 bg-slate-100">
   <div class="w-full flex flex-row">
-    <a class="flex-1 justify-self-stretch text-center border-0 border-x" class:border-b-2={!showQueue} class:bg-slate-200={!showQueue} on:click|preventDefault={() => switchTab("queue")} href="#queue">Queue</a>
+    <a class="flex-1 justify-self-stretch text-center border-0 border-x" class:border-b-2={!showQueue} class:bg-slate-200={!showQueue} on:click|preventDefault={() => switchTab("queue")} href="#room-queue">Up Next</a>
     <a class="flex-1 justify-self-stretch text-center border-0 border-x" class:border-b-2={!showPresences} class:bg-slate-200={!showPresences} on:click|preventDefault={() => switchTab("presences")} href="#presences">Users Online</a>
   </div>
   {#if showQueue}
-    <div>
-      <ol>
-        {#each $socket.queue as user}
-          <li>{user}</li>
-        {/each}
-      </ol>
-    </div>
+    <RoomQueue/>
   {/if}
   {#if showPresences}
-    <div>
-      <ul>
-        {#each $socket.presences as user}
-          <li>{user}</li>
-        {/each}
-      </ul>
-    </div>
+    <Presences/>
   {/if}
 </div>

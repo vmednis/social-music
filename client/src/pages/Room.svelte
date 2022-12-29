@@ -3,8 +3,8 @@
   import {socket} from "./room/socket.js";
   import Player from "/src/pages/room/Player.svelte"
   import Chat from "/src/pages/room/Chat.svelte";
-  import Users from "/src/pages/room/Users.svelte";
-  import Search from "/src/pages/room/Search.svelte";
+  import PanelRight from "/src/pages/room/PanelRight.svelte";
+  import PanelLeft from "/src/pages/room/PanelLeft.svelte";
 
   export let roomId = "";
 
@@ -17,11 +17,8 @@
 <div class="flex flex-col h-full max-h-full">
   <Player></Player>
   <div class="flex flex-row h-full max-h-full min-h-0 grow">
-    <Search></Search>
+    <PanelLeft/>
     <Chat></Chat>
-    <Users></Users>
+    <PanelRight/>
   </div>
 </div>
-
-<style>
-</style>

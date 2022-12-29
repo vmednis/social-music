@@ -42,6 +42,3 @@
     <Route component={NotFound}/>
   {/if}
 </Router>
-
-<style>
-</style>

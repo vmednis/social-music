@@ -36,7 +36,7 @@
   }
 </script>
 
-<div class="w-full max-w-md h-full max-h-full grow-0 flex flex-col bg-slate-100">
+<div>
   <div class="w-full flex flex-row">
     <input type="text" placeholder="Search query..." class="flex-1" bind:value={query} on:keydown={onSearchBarKeyDown}/>
     <button class="flex-0" on:click={search}>Search</button>
@@ -58,5 +58,3 @@
     {/each}
   </div>
 </div>
-
-<style></style>

@@ -48,6 +48,3 @@ fetch(`/api/v1/rooms/`, {
     </div>
   {/if}
 </div>
-
-<style>
-</style>

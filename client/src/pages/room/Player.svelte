@@ -132,6 +132,3 @@
     <div class="bg-amber-400 h-1 transition-[width] ease-linear duration-[100ms]" style="width: {progress}%;"></div>
   </div>
 </div>
-
-<style>
-</style>
