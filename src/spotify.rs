@@ -1,4 +1,4 @@
-use crate::db::{Db, auth::Auth};
+use crate::db::{auth::Auth, Db};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
@@ -45,7 +45,7 @@ impl SpotifyInternal {
             client_id,
             client_secret,
             http_client,
-            db
+            db,
         }
     }
 
@@ -110,7 +110,8 @@ impl SpotifyInternal {
         let refresh_token = data.refresh_token.unwrap_or(token.refresh_token);
 
         let mut db = self.db.lock().await;
-        db.set_auth(token.user_id.unwrap(), access_token, refresh_token).await;
+        db.set_auth(token.user_id.unwrap(), access_token, refresh_token)
+            .await;
     }
 }
 

@@ -5,8 +5,8 @@ use crate::endpoint;
 use crate::spotify;
 use crate::spotify::Spotify;
 use std::collections::HashMap;
-use warp::Filter;
 use warp::filters::BoxedFilter;
+use warp::Filter;
 
 pub fn routes(
     db: Db,
@@ -69,22 +69,18 @@ fn routes_static() -> BoxedFilter<(impl warp::Reply,)> {
     assets.or(robots).or(icon).or(default).boxed()
 }
 
-fn routes_api(
-    db: Db,
-    spotify: Spotify,
-) -> BoxedFilter<(impl warp::Reply,)> {
+fn routes_api(db: Db, spotify: Spotify) -> BoxedFilter<(impl warp::Reply,)> {
     warp::path("api")
         .and(warp::path("v1"))
         .and(
             routes_api_room(db.clone())
-            .or(routes_api_search(db.clone(), spotify.clone()))
-            .or(warp::path::end().map(|| "api")))
+                .or(routes_api_search(db.clone(), spotify.clone()))
+                .or(warp::path::end().map(|| "api")),
+        )
         .boxed()
 }
 
-fn routes_api_room(
-    db: Db,
-) -> BoxedFilter<(impl warp::Reply,)> {
+fn routes_api_room(db: Db) -> BoxedFilter<(impl warp::Reply,)> {
     //POST /api/v1/rooms
     let post_room = warp::path::end()
         .and(warp::post())
@@ -110,15 +106,15 @@ fn routes_api_room(
 
     warp::path("rooms")
         .and(
-            post_room.or(get_rooms).or(get_room)
-            .or(warp::path::end().map(|| "room")))
+            post_room
+                .or(get_rooms)
+                .or(get_room)
+                .or(warp::path::end().map(|| "room")),
+        )
         .boxed()
 }
 
-fn routes_api_search(
-    db: Db,
-    spotify: Spotify
-) -> BoxedFilter<(impl warp::Reply,)> {
+fn routes_api_search(db: Db, spotify: Spotify) -> BoxedFilter<(impl warp::Reply,)> {
     //GET /api/v1/search?q={query}
     let get_search = warp::path::end()
         .and(warp::get())
@@ -128,7 +124,5 @@ fn routes_api_search(
         .and(warp::query::<HashMap<String, String>>())
         .and_then(endpoint::get_search);
 
-    warp::path("search")
-        .and(get_search)
-        .boxed()
+    warp::path("search").and(get_search).boxed()
 }

@@ -13,7 +13,11 @@ pub async fn get_test_endpoint(user_id: String, db: Db) -> Result<impl Reply, In
     Ok(format!("Hello, {} your token is {:?}!", user_id, key))
 }
 
-pub async fn get_token(user_id: String, spotify: Spotify, db: Db) -> Result<impl Reply, Infallible> {
+pub async fn get_token(
+    user_id: String,
+    spotify: Spotify,
+    db: Db,
+) -> Result<impl Reply, Infallible> {
     let mut inner_db = db.lock().await;
     let token = inner_db.get_auth(user_id.clone()).await.unwrap();
     std::mem::drop(inner_db);
@@ -113,19 +117,22 @@ pub async fn create_room(
         Ok(_) => {
             let reply: Vec<String> = Vec::new();
             let json = warp::reply::json(&reply);
-            Ok(warp::reply::with_status(json, warp::http::StatusCode::CREATED))
+            Ok(warp::reply::with_status(
+                json,
+                warp::http::StatusCode::CREATED,
+            ))
         }
         Err(errors) => {
             let json = warp::reply::json(&errors);
-            Ok(warp::reply::with_status(json, warp::http::StatusCode::BAD_REQUEST))
+            Ok(warp::reply::with_status(
+                json,
+                warp::http::StatusCode::BAD_REQUEST,
+            ))
         }
     }
 }
 
-pub async fn list_rooms(
-    _user_id: String,
-    db: Db,
-) -> Result<warp::reply::Response, Infallible> {
+pub async fn list_rooms(_user_id: String, db: Db) -> Result<warp::reply::Response, Infallible> {
     let mut db = db.lock().await;
     let rooms = db.list_rooms().await;
     Ok(warp::reply::json(&rooms).into_response())
@@ -140,7 +147,11 @@ pub async fn get_room(
     let room = db.get_room(room_id).await;
     match room {
         Some(room) => Ok(warp::reply::json(&room).into_response()),
-        None => Ok(warp::reply::with_status("Couldn't find room with this id.", warp::http::StatusCode::NOT_FOUND).into_response())
+        None => Ok(warp::reply::with_status(
+            "Couldn't find room with this id.",
+            warp::http::StatusCode::NOT_FOUND,
+        )
+        .into_response()),
     }
 }
 
@@ -154,7 +165,12 @@ pub async fn ws_chat(
     Ok(ws.on_upgrade(move |websocket| socket::connected(websocket, room_id, user_id, db, spotify)))
 }
 
-pub async fn get_search(user_id: String, db: Db, spotify: Spotify, query: HashMap<String, String>) -> Result<impl warp::Reply, Infallible> {
+pub async fn get_search(
+    user_id: String,
+    db: Db,
+    spotify: Spotify,
+    query: HashMap<String, String>,
+) -> Result<impl warp::Reply, Infallible> {
     let query = query.get("q");
 
     match query {
@@ -164,27 +180,55 @@ pub async fn get_search(user_id: String, db: Db, spotify: Spotify, query: HashMa
             std::mem::drop(db);
 
             let spotify = spotify.lock().await;
-            let results = spotify.request_search(token, query.clone(), "track".to_string(), None, Some(20), Some(0), None).await;
+            let results = spotify
+                .request_search(
+                    token,
+                    query.clone(),
+                    "track".to_string(),
+                    None,
+                    Some(20),
+                    Some(0),
+                    None,
+                )
+                .await;
             std::mem::drop(spotify);
 
-            let response: Vec<HashMap<&str, String>> = results.tracks.items.iter().map(|track| {
-                let artists: Vec<String> = track.artists.iter().map(|artist| artist.name.clone()).collect();
-                let mut images: Vec<(u32, String)> = track.album.images.iter().map(|image| (image.width * image.height, image.url.clone())).collect();
-                images.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
-                let (_, image) = &images[0];
+            let response: Vec<HashMap<&str, String>> = results
+                .tracks
+                .items
+                .iter()
+                .map(|track| {
+                    let artists: Vec<String> = track
+                        .artists
+                        .iter()
+                        .map(|artist| artist.name.clone())
+                        .collect();
+                    let mut images: Vec<(u32, String)> = track
+                        .album
+                        .images
+                        .iter()
+                        .map(|image| (image.width * image.height, image.url.clone()))
+                        .collect();
+                    images.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
+                    let (_, image) = &images[0];
 
-                let mut track_short = HashMap::new();
-                track_short.insert("name", track.name.clone());
-                track_short.insert("preview_url", track.preview_url.clone().unwrap());
-                track_short.insert("uri", track.uri.clone());
-                track_short.insert("artists", artists.join(", "));
-                track_short.insert("cover", image.clone());
+                    let mut track_short = HashMap::new();
+                    track_short.insert("name", track.name.clone());
+                    track_short.insert("preview_url", track.preview_url.clone().unwrap());
+                    track_short.insert("uri", track.uri.clone());
+                    track_short.insert("artists", artists.join(", "));
+                    track_short.insert("cover", image.clone());
 
-                track_short
-            }).collect();
+                    track_short
+                })
+                .collect();
 
             Ok(warp::reply::json(&response).into_response())
-        },
-        None => Ok(warp::reply::with_status("Missing query parameter", warp::http::StatusCode::BAD_REQUEST).into_response())
+        }
+        None => Ok(warp::reply::with_status(
+            "Missing query parameter",
+            warp::http::StatusCode::BAD_REQUEST,
+        )
+        .into_response()),
     }
 }

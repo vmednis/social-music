@@ -1,8 +1,8 @@
 use crate::db;
 use redis::{AsyncCommands, Commands};
 use regex::Regex;
-use serde::{Serialize, Deserialize};
-use std::collections::{HashSet, HashMap};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 impl db::DbInternal {
     fn key_room(room_id: String) -> String {
@@ -64,7 +64,8 @@ impl db::DbInternal {
 
     pub async fn get_room(&mut self, room_id: String) -> Option<Room> {
         let mut con = self.client.get_async_connection().await.unwrap();
-        let data: Option<HashMap<String, String>> = con.hgetall(Self::key_room(room_id)).await.unwrap();
+        let data: Option<HashMap<String, String>> =
+            con.hgetall(Self::key_room(room_id)).await.unwrap();
         match Room::try_from(data) {
             Ok(data) => Some(data),
             Err(e) => {
@@ -203,7 +204,6 @@ impl Into<Vec<(String, String)>> for Room {
         args
     }
 }
-
 
 impl TryFrom<Option<HashMap<String, String>>> for Room {
     type Error = &'static str;

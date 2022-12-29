@@ -9,7 +9,7 @@ struct SpotifyRequestSearch {
     market: Option<String>,
     limit: Option<u32>,
     offset: Option<u32>,
-    include_external: Option<bool>
+    include_external: Option<bool>,
 }
 
 impl spotify::SpotifyRequest for SpotifyRequestSearch {
@@ -36,13 +36,9 @@ impl spotify::SpotifyRequest for SpotifyRequestSearch {
             None => "".to_string(),
         };
 
-        format!("https://api.spotify.com/v1/search?q={}&type={}{}{}{}{}",
-            self.query,
-            self.search_type,
-            market,
-            limit,
-            offset,
-            include_external
+        format!(
+            "https://api.spotify.com/v1/search?q={}&type={}{}{}{}{}",
+            self.query, self.search_type, market, limit, offset, include_external
         )
     }
 
@@ -72,8 +68,17 @@ impl spotify::SpotifyRequest for SpotifyRequestSearch {
 }
 
 impl spotify::SpotifyInternal {
-    pub async fn request_search(&self, token: Auth, query: String, search_type: String, market: Option<String>, limit: Option<u32>, offset: Option<u32>, include_external: Option<bool>) -> SearchResult {
-        let req = SpotifyRequestSearch{
+    pub async fn request_search(
+        &self,
+        token: Auth,
+        query: String,
+        search_type: String,
+        market: Option<String>,
+        limit: Option<u32>,
+        offset: Option<u32>,
+        include_external: Option<bool>,
+    ) -> SearchResult {
+        let req = SpotifyRequestSearch {
             token,
             query,
             search_type,
