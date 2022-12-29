@@ -18,10 +18,10 @@
   }
 </script>
 
-<div class="w-full max-w-xs h-full max-h-full grow-0">
+<div class="w-full max-w-xs h-full max-h-full grow-0 bg-slate-100">
   <div class="w-full flex flex-row">
-    <a class="flex-1 justify-self-stretch text-center border-0 border-x" class:border-b-2={!showQueue} on:click|preventDefault={() => switchTab("queue")} href="#queue">Queue</a>
-    <a class="flex-1 justify-self-stretch text-center border-0 border-x" class:border-b-2={!showPresences} on:click|preventDefault={() => switchTab("presences")} href="#presences">Users Online</a>
+    <a class="flex-1 justify-self-stretch text-center border-0 border-x" class:border-b-2={!showQueue} class:bg-slate-200={!showQueue} on:click|preventDefault={() => switchTab("queue")} href="#queue">Queue</a>
+    <a class="flex-1 justify-self-stretch text-center border-0 border-x" class:border-b-2={!showPresences} class:bg-slate-200={!showPresences} on:click|preventDefault={() => switchTab("presences")} href="#presences">Users Online</a>
   </div>
   {#if showQueue}
     <div>

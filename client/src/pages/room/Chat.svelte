@@ -21,7 +21,7 @@
   }
 </script>
 
-<div class="flex flex-col h-full max-h-full grow">
+<div class="flex flex-col h-full max-h-full grow bg-slate-50">
   <div class="flex-1 flex flex-col overflow-y-scroll">
     <div class="grow" />
     <div class="grow-0 flex flex-col">

@@ -115,9 +115,9 @@
   });
 </script>
 
-<div class="grow-0 bg-gray-100">
+<div class="grow-0 bg-slate-100">
   <div class="flex w-full">
-    <div class="w-16 h-16 bg-gray-800 bg-center bg-cover" style="background-image: url('{cover}')"></div>
+    <div class="w-16 h-16 bg-slate-800 bg-center bg-cover" style="background-image: url('{cover}')"></div>
     <div class="w-8 h-8 m-4 bg-center bg-cover" style="background-image: url('{SpotifyLogo}')"></div>
     <div class="pt-1">
       {#if ready}
@@ -128,7 +128,7 @@
       {/if}
     </div>
   </div>
-  <div class="w-full bg-gray-300 h-1">
+  <div class="w-full bg-slate-300 h-1">
     <div class="bg-amber-400 h-1 transition-[width] ease-linear duration-[100ms]" style="width: {progress}%;"></div>
   </div>
 </div>
