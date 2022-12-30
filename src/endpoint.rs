@@ -33,7 +33,7 @@ pub async fn get_token(
 }
 
 pub async fn get_login() -> Result<impl Reply, Infallible> {
-    let return_url = "http://127.0.0.1:3030/authorize";
+    let return_url = std::env::var("SPOTIFY_RETURN_URL").unwrap();
     let client_id = std::env::var("SPOTIFY_CLIENT_ID").unwrap();
 
     let spotify_uri = warp::http::Uri::builder()
