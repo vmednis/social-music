@@ -10,7 +10,11 @@ function createSocket() {
   });
 
   const init = (roomId) => {
-    const ws = new WebSocket(`ws://${location.host}/chat/${roomId}`);
+    let protocol = "ws:";
+    if (location.protocol == "https:") {
+      protocol = "wss:"
+    }
+    const ws = new WebSocket(`${protocol}//${location.host}/chat/${roomId}`);
 
     ws.addEventListener('open', (event) => {
       update((data) => {
