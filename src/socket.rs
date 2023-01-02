@@ -131,7 +131,8 @@ pub async fn connected(
             let message_ws = match result {
                 Ok(msg) => msg,
                 Err(e) => {
-                    panic!("Websocket Error {}", e);
+                    log::debug!("Websocket Error {}", e);
+                    break;
                 }
             };
             if message_ws.is_text() {
@@ -143,6 +144,8 @@ pub async fn connected(
                     message_ws.to_str().unwrap().to_string(),
                 )
                 .await;
+            } else {
+                log::debug!("Websocket non-text message {:?}", message_ws);
             }
         }
 
