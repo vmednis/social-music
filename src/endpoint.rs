@@ -55,7 +55,7 @@ pub async fn get_authorize(
     spotify: Spotify,
     db: Db,
 ) -> Result<impl warp::Reply, Infallible> {
-    let return_url = "http://127.0.0.1:3030/authorize".to_string();
+    let return_url = std::env::var("SPOTIFY_RETURN_URL").unwrap();
     let code = query.get("code").unwrap();
 
     let spotify = spotify.lock().await;
