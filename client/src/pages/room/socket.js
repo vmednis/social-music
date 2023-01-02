@@ -10,7 +10,7 @@ function createSocket() {
   });
 
   const init = (roomId) => {
-    const ws = new WebSocket("ws://127.0.0.1:3030/chat/" + roomId);
+    const ws = new WebSocket(`ws://${location.host}/chat/${roomId}`);
 
     ws.addEventListener('open', (event) => {
       update((data) => {
