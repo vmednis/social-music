@@ -4,6 +4,7 @@
   import RoomNew from "/src/pages/RoomNew.svelte";
   import NotFound from "/src/pages/NotFound.svelte";
   import RoomsList from "/src/pages/RoomsList.svelte";
+  import LandingPage from "/src/pages/LandingPage.svelte";
 
   let is_logged_in = false;
   if(document.cookie.match(/^(.*;)?\s*userid\s*=\s*[^;]+(.*)?$/)) {
@@ -34,9 +35,7 @@
       </main>
     </div>
   {:else}
-    <Route path="/">
-      <a href="/login">Login with Spotify</a>
-    </Route>
+    <Route path="/" component={LandingPage}/>
 
     <!--Fallback 404-->
     <Route component={NotFound}/>
