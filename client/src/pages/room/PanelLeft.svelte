@@ -1,5 +1,8 @@
 <script>
   import Search from "/src/pages/room/Search.svelte";
+  import UserQueue from "/src/pages/room/UserQueue.svelte";
+
+  export let roomId = "";
 
   let showSearch = true;
   let showQueue = false;
@@ -27,6 +30,6 @@
     <Search/>
   {/if}
   {#if showQueue}
-    <p>Todo</p>
+    <UserQueue roomId={roomId}/>
   {/if}
 </div>

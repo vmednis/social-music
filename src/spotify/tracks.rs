@@ -48,6 +48,62 @@ impl spotify::SpotifyInternal {
     }
 }
 
+struct SpotfiyRequestTracks {
+    token: Auth,
+    track_ids: Vec<String>,
+}
+
+impl spotify::SpotifyRequest for SpotfiyRequestTracks {
+    type JSONDataType = ();
+
+    fn endpoint(&self) -> String {
+        let short_ids: Vec<String> = self
+            .track_ids
+            .iter()
+            .map(|track_id| track_id.split(":").last().unwrap().to_string())
+            .collect();
+
+        format!("https://api.spotify.com/v1/tracks?ids={}", short_ids.join(","))
+    }
+
+    fn method(&self) -> spotify::SpotifyMethod {
+        spotify::SpotifyMethod::Get
+    }
+
+    fn basic_auth(&self) -> bool {
+        false
+    }
+
+    fn token(&self) -> Option<Auth> {
+        Some(self.token.clone())
+    }
+
+    fn form_data(&self) -> Option<Vec<(&str, &str)>> {
+        None
+    }
+
+    fn json_data(&self) -> Option<Self::JSONDataType> {
+        None
+    }
+
+    fn has_result(&self) -> bool {
+        true
+    }
+}
+
+impl spotify::SpotifyInternal {
+    pub async fn request_tracks(&self, token: Auth, track_ids: Vec<String>) -> TrackList {
+        let req = SpotfiyRequestTracks { token, track_ids };
+
+        Self::request(&self, req).await.unwrap()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TrackList {
+    pub tracks: Vec<Track>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Track {
     pub album: Album,

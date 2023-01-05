@@ -2,6 +2,7 @@ use crate::cookie;
 use crate::db;
 use crate::db::Db;
 use crate::socket;
+use crate::spotify;
 use crate::spotify::Spotify;
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -193,33 +194,12 @@ pub async fn get_search(
                 .await;
             std::mem::drop(spotify);
 
-            let response: Vec<HashMap<&str, String>> = results
+            let response: Vec<spotify::util::ShortTrack> = results
                 .tracks
                 .items
                 .iter()
                 .map(|track| {
-                    let artists: Vec<String> = track
-                        .artists
-                        .iter()
-                        .map(|artist| artist.name.clone())
-                        .collect();
-                    let mut images: Vec<(u32, String)> = track
-                        .album
-                        .images
-                        .iter()
-                        .map(|image| (image.width * image.height, image.url.clone()))
-                        .collect();
-                    images.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
-                    let (_, image) = &images[0];
-
-                    let mut track_short = HashMap::new();
-                    track_short.insert("name", track.name.clone());
-                    track_short.insert("preview_url", track.preview_url.clone().unwrap());
-                    track_short.insert("uri", track.uri.clone());
-                    track_short.insert("artists", artists.join(", "));
-                    track_short.insert("cover", image.clone());
-
-                    track_short
+                    spotify::util::shorten_track(track)
                 })
                 .collect();
 
@@ -231,4 +211,35 @@ pub async fn get_search(
         )
         .into_response()),
     }
+}
+
+pub async fn list_user_queue(
+    room_id: String,
+    user_id: String,
+    db: Db,
+    spotify: Spotify,
+) -> Result<warp::reply::Response, Infallible> {
+    let mut db = db.lock().await;
+    let token = db.get_auth(user_id.clone()).await.unwrap();
+    let track_ids = db.list_user_queue(room_id, user_id).await;
+    std::mem::drop(db);
+
+    let response: Vec<spotify::util::ShortTrack> = if !track_ids.is_empty() {
+        let spotify = spotify.lock().await;
+        let results = spotify.request_tracks(token, track_ids).await;
+
+        let response: Vec<spotify::util::ShortTrack> = results
+            .tracks
+            .iter()
+            .map(|track| {
+                spotify::util::shorten_track(track)
+            })
+            .collect();
+
+        response
+    } else {
+        Vec::new()
+    };
+
+    Ok(warp::reply::json(&response).into_response())
 }

@@ -36,7 +36,7 @@
   }
 </script>
 
-<div>
+<div class="h-full max-h-full flex flex-col">
   <div class="w-full flex flex-row">
     <input type="text" placeholder="Search query..." class="flex-1" bind:value={query} on:keydown={onSearchBarKeyDown}/>
     <button class="flex-0 border-amber-500 border rounded bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-center px-2" on:click={search}>Search</button>

@@ -75,6 +75,7 @@ fn routes_api(db: Db, spotify: Spotify) -> BoxedFilter<(impl warp::Reply,)> {
         .and(
             routes_api_room(db.clone())
                 .or(routes_api_search(db.clone(), spotify.clone()))
+                .or(routes_api_queue(db.clone(), spotify.clone()))
                 .or(warp::path::end().map(|| "api")),
         )
         .boxed()
@@ -125,4 +126,18 @@ fn routes_api_search(db: Db, spotify: Spotify) -> BoxedFilter<(impl warp::Reply,
         .and_then(endpoint::get_search);
 
     warp::path("search").and(get_search).boxed()
+}
+
+fn routes_api_queue(db: Db, spotify: Spotify) -> BoxedFilter<(impl warp::Reply, )> {
+    //GET /api/v1/queues/{queue_id}
+    //queue_id same as room_id corresponding to it
+    let get_queue = warp::path::param::<String>()
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(cookie::with_user())
+        .and(db::with(db.clone()))
+        .and(spotify::with(spotify.clone()))
+        .and_then(endpoint::list_user_queue);
+
+    warp::path("queues").and(get_queue).boxed()
 }

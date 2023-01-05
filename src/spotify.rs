@@ -11,6 +11,7 @@ mod me;
 mod play;
 mod search;
 mod tracks;
+pub mod util;
 
 pub type Spotify = Arc<Mutex<SpotifyInternal>>;
 
