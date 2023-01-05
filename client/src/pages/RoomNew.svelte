@@ -47,7 +47,7 @@
         <input type="text" id="room_name" class="border-slate-200 border rounded w-full p-1 mb-4" bind:value={room.title}><br>
       </form>
       {#if ready}
-        <button class="p-1 w-full border-amber-500 border rounded bg-amber-400 hover:bg-amber-500" on:click="{onCreateRoom}">Create Room</button>
+        <button class="p-1 w-full border-amber-500 border rounded bg-amber-400 hover:bg-amber-500 active:bg-amber-500" on:click="{onCreateRoom}">Create Room</button>
       {/if}
     </div>
   </div>

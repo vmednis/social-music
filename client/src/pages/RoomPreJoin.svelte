@@ -44,7 +44,7 @@ function onJoin() {
           {:else}
             <h1 class="text-2xl">Welcome to, {room.title}!</h1>
             <h2 class="text-lg text-slate-500 mb-2 leading-none">{room.id}</h2>
-            <button on:click={onJoin} class="p-1 w-full border-amber-500 border rounded bg-amber-400 hover:bg-amber-500">Join Room</button>
+            <button on:click={onJoin} class="p-1 w-full border-amber-500 border rounded bg-amber-400 hover:bg-amber-500 active:bg-amber-600">Join Room</button>
           {/if}
         {/if}
       </div>

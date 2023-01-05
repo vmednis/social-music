@@ -37,7 +37,7 @@ fetch(`/api/v1/rooms/`, {
         <tbody>
           {#each rooms as room}
             <tr>
-              <td><Link to={"/room/" + room.id} class="text-blue-600 hover:text-blue-800">Join</Link></td>
+              <td><Link to={"/room/" + room.id} class="text-blue-600 hover:text-blue-700 active:text-blue-800">Join</Link></td>
               <td>{room.id}</td>
               <td>{room.title}</td>
               <td>{room.owner}</td>
