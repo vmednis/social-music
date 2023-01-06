@@ -65,12 +65,6 @@ pub async fn connected(
                 msg = system_rx.recv() => {
                     match msg {
                         Some(message) => {
-                            let data = data_out::ChatMessage{
-                                id: "".to_string(),
-                                from: "system".to_string(),
-                                message,
-                            };
-                            let message = data_out::Message::ChatMessage(data);
                             let json = serde_json::to_string(&message).unwrap();
                             ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
                         },
@@ -137,6 +131,7 @@ pub async fn connected(
             };
             if message_ws.is_text() {
                 on_message(
+                    &system_tx,
                     db.clone(),
                     room_id.clone(),
                     user_id.clone(),
@@ -151,8 +146,16 @@ pub async fn connected(
 
         kill_presence_tx.send(()).await.unwrap();
     } else {
+        let message_text = format!("Room {} does not exist!", room_id);
+        let data = data_out::ChatMessage{
+            id: "".to_string(),
+            from: "system".to_string(),
+            message: message_text,
+        };
+        let message = data_out::Message::ChatMessage(data);
+
         system_tx
-            .send(format!("Room {} does not exist!", room_id))
+            .send(message)
             .await
             .unwrap();
     }
@@ -161,6 +164,7 @@ pub async fn connected(
 }
 
 async fn on_message(
+    system_tx: &tokio::sync::mpsc::Sender<data_out::Message>,
     db: db::Db,
     room_id: String,
     user_id: String,
@@ -188,6 +192,14 @@ async fn on_message(
             db.push_user_queue(room_id.clone(), user_id.clone(), queue_song.track_id)
                 .await;
         }
+        data_in::Message::KeepAlivePing(ping) => {
+            let data = data_out::KeepAlivePong {
+                data: ping.data
+            };
+            let message = data_out::Message::KeepAlivePong(data);
+
+            system_tx.send(message).await.unwrap();
+        }
         data_in::Message::JoinQueue => {
             let mut db = db.lock().await;
             db.push_queue(room_id.clone(), user_id.clone()).await;
@@ -213,9 +225,15 @@ mod data_out {
     }
 
     #[derive(Debug, Serialize, Deserialize)]
+    pub struct KeepAlivePong {
+        pub data: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
     pub enum Message {
         ChatMessage(ChatMessage),
         PresencesQueueMessage(PresencesQueueMessage),
+        KeepAlivePong(KeepAlivePong),
     }
 }
 
@@ -238,10 +256,16 @@ mod data_in {
     }
 
     #[derive(Debug, Serialize, Deserialize)]
+    pub struct KeepAlivePing {
+        pub data: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
     pub enum Message {
         ChatMessage(ChatMessage),
         SetDevice(SetDevice),
         QueueSong(QueueSong),
+        KeepAlivePing(KeepAlivePing),
         JoinQueue,
     }
 }

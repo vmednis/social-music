@@ -17,6 +17,19 @@ function createSocket() {
     const ws = new WebSocket(`${protocol}//${location.host}/chat/${roomId}`);
 
     ws.addEventListener('open', (event) => {
+      let keepAlive = () => {
+        let data = crypto.randomUUID();
+        let json = JSON.stringify({
+          KeepAlivePing: {
+            data
+          }
+        });
+        ws.send(json)
+
+        setTimeout(keepAlive, 15000);
+      }
+      keepAlive();
+
       update((data) => {
         data.ready = true;
         return data;
