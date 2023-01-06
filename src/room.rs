@@ -114,9 +114,6 @@ async fn serve_room(db: db::Db, spotify: spotify::Spotify, room_id: String) {
             }
         }
     }
-
-    //kill_presence_tx.send(()).await.unwrap();
-    //kill_db_tx.send(()).await.unwrap();
 }
 
 async fn play_next_song(db: db::Db, spotify: spotify::Spotify, room_id: String) -> Option<u64> {
@@ -126,6 +123,10 @@ async fn play_next_song(db: db::Db, spotify: spotify::Spotify, room_id: String) 
             .pop_user_queue(room_id.clone(), next_user_id.clone())
             .await
         {
+            //Notify next_user_id on their queue change
+            inner_db.add_message(room_id.clone(), Message::user_queue_changed(next_user_id.clone())).await;
+
+            //Gather all we need to play the next song
             let token = inner_db.get_auth(next_user_id.clone()).await.unwrap();
             let users = inner_db.list_presences(room_id.clone()).await;
             inner_db.push_queue(room_id.clone(), next_user_id).await;

@@ -7,6 +7,7 @@ function createSocket() {
     messages: [],
     queue: [],
     presences: [],
+    queueChange: 0,
   });
 
   const init = (roomId) => {
@@ -48,6 +49,12 @@ function createSocket() {
         update((data) => {
           data.queue = message.PresencesQueueMessage.queue;
           data.presences = message.PresencesQueueMessage.presences;
+          return data;
+        });
+      }
+      if(message == "UserQueueChange") {
+        update((data) => {
+          data.queueChange += 1;
           return data;
         });
       }

@@ -97,9 +97,15 @@ pub struct MessageDeviceChange {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct MessageUserQueueChanged {
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum MessageType {
     MessageChat(MessageChat),
     MessageDeviceChange(MessageDeviceChange),
+    MessageUserQueueChanged(MessageUserQueueChanged),
     MessagePresencesChanged,
     MessageQueueChanged,
 }
@@ -122,6 +128,13 @@ impl Message {
         Self {
             id: None,
             data: MessageType::MessageDeviceChange(MessageDeviceChange { user_id }),
+        }
+    }
+
+    pub fn user_queue_changed(user_id: String) -> Self {
+        Self {
+            id: None,
+            data: MessageType::MessageUserQueueChanged(MessageUserQueueChanged { user_id })
         }
     }
 
@@ -152,6 +165,10 @@ impl Into<Vec<(String, String)>> for Message {
             }
             MessageType::MessageDeviceChange(data) => {
                 args.push(("type".to_string(), "MessageDeviceChange".to_string()));
+                args.push(("user_id".to_string(), data.user_id));
+            }
+            MessageType::MessageUserQueueChanged(data) => {
+                args.push(("type".to_string(), "MessageUserQueueChanged".to_string()));
                 args.push(("user_id".to_string(), data.user_id));
             }
             MessageType::MessagePresencesChanged => {
@@ -186,6 +203,13 @@ impl TryFrom<&redis::streams::StreamId> for Message {
 
                 Ok(MessageType::MessageDeviceChange(MessageDeviceChange {
                     user_id,
+                }))
+            }
+            "MessageUserQueueChanged" => {
+                let user_id = db::util::read_redis_stream_data(stream_id, "user_id")?;
+
+                Ok(MessageType::MessageUserQueueChanged(MessageUserQueueChanged {
+                    user_id
                 }))
             }
             "MessagePresencesChanged" => Ok(MessageType::MessagePresencesChanged),

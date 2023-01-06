@@ -16,6 +16,7 @@ pub async fn connected(
     //Send out messages to the client
     let inner_db = db.clone();
     let inner_room_id = room_id.clone();
+    let inner_user_id = user_id.clone();
     let (kill_db_tx, mut kill_db_rx) = tokio::sync::mpsc::channel(1);
     let (system_tx, mut system_rx) = tokio::sync::mpsc::channel(1);
     tokio::task::spawn(async move {
@@ -52,6 +53,13 @@ pub async fn connected(
                                     let message = data_out::Message::PresencesQueueMessage(data);
                                     let json = serde_json::to_string(&message).unwrap();
                                     ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
+                                },
+                                db::message::MessageType::MessageUserQueueChanged(data) => {
+                                    if data.user_id == inner_user_id.clone() {
+                                        let message = data_out::Message::UserQueueChange;
+                                        let json = serde_json::to_string(&message).unwrap();
+                                        ws_tx.send(warp::ws::Message::text(json)).await.unwrap();
+                                    }
                                 },
                                 _ => ()
                             }
@@ -234,6 +242,7 @@ mod data_out {
         ChatMessage(ChatMessage),
         PresencesQueueMessage(PresencesQueueMessage),
         KeepAlivePong(KeepAlivePong),
+        UserQueueChange,
     }
 }
 

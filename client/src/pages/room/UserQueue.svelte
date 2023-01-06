@@ -1,4 +1,7 @@
 <script>
+	import { onDestroy } from 'svelte';
+  import { socket } from "/src/pages/room/socket.js";
+
   export let roomId = "";
 
   let tracks = [];
@@ -17,7 +20,16 @@
     });
   }
 
-  getQueue();
+  let queueChange = null;
+  const unsubscribe = socket.subscribe((data) => {
+    if(queueChange != data.queueChange) {
+      //If there's been a change to the queue or it's our first time here getQueue
+      queueChange = data.queueChange;
+      getQueue();
+    }
+  })
+
+  onDestroy(unsubscribe);
 </script>
 
 <div class="h-full flex">
