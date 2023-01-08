@@ -9,6 +9,7 @@ use std::convert::Infallible;
 use warp::{ws::Ws, Reply};
 
 pub async fn get_test_endpoint(user_id: String, db: Db) -> Result<impl Reply, Infallible> {
+    //Used only for testing
     let mut db = db.lock().await;
     let key = db.get_auth(user_id.clone()).await;
     Ok(format!("Hello, {} your token is {:?}!", user_id, key))
@@ -19,6 +20,7 @@ pub async fn get_token(
     spotify: Spotify,
     db: Db,
 ) -> Result<impl Reply, Infallible> {
+    //Get users token from database
     let mut inner_db = db.lock().await;
     let token = inner_db.get_auth(user_id.clone()).await.unwrap();
     std::mem::drop(inner_db);
@@ -37,6 +39,7 @@ pub async fn get_login() -> Result<impl Reply, Infallible> {
     let return_url = std::env::var("SPOTIFY_RETURN_URL").unwrap();
     let client_id = std::env::var("SPOTIFY_CLIENT_ID").unwrap();
 
+    //Redirect user to a spotify authorization page
     let spotify_uri = warp::http::Uri::builder()
       .scheme("https")
       .authority("accounts.spotify.com")
@@ -59,6 +62,7 @@ pub async fn get_authorize(
     let return_url = std::env::var("SPOTIFY_RETURN_URL").unwrap();
     let code = query.get("code").unwrap();
 
+    //Acquire users tokens from spotify
     let spotify = spotify.lock().await;
     let token = spotify.request_auth_new(code.clone(), return_url).await;
     let access_token = token.access_token;
@@ -72,6 +76,7 @@ pub async fn get_authorize(
         .await;
     std::mem::drop(spotify);
 
+    //Save the users tokens to the database
     let mut db = db.lock().await;
     db.set_auth(
         user.uri.clone(),
@@ -81,6 +86,7 @@ pub async fn get_authorize(
     .await;
     std::mem::drop(db);
 
+    //Set the cookie and redirect user to /
     let cookie = cookie::gen_user(user.uri);
     let redirect = warp::redirect::see_other(warp::http::Uri::from_static("/"));
     let reply = warp::reply::with_header(redirect, "Set-Cookie", format!("userid={}", cookie));
@@ -89,6 +95,7 @@ pub async fn get_authorize(
 }
 
 pub async fn get_logout() -> Result<impl Reply, Infallible> {
+    //Set an expiration for the cookie and redirect to /
     let redirect = warp::redirect::see_other(warp::http::Uri::from_static("/"));
     let reply = warp::reply::with_header(
         redirect,
@@ -104,6 +111,7 @@ pub async fn create_room(
     db: Db,
     body: HashMap<String, String>,
 ) -> Result<impl warp::Reply, Infallible> {
+    //Extract room information fromm parameters
     let id = body.get("id").unwrap_or(&"".to_string()).clone();
     let title = body.get("title").unwrap_or(&"".to_string()).clone();
 
@@ -113,9 +121,11 @@ pub async fn create_room(
         owner: user_id.clone(),
     };
 
+    //Try to insert the room into the database
     let mut db = db.lock().await;
     match db.create_room(room).await {
         Ok(_) => {
+            //If successfuly reply with no errors
             let reply: Vec<String> = Vec::new();
             let json = warp::reply::json(&reply);
             Ok(warp::reply::with_status(
@@ -124,6 +134,7 @@ pub async fn create_room(
             ))
         }
         Err(errors) => {
+            //If failed to insert room (i.e. failing validation) reply with errors
             let json = warp::reply::json(&errors);
             Ok(warp::reply::with_status(
                 json,
@@ -134,8 +145,10 @@ pub async fn create_room(
 }
 
 pub async fn list_rooms(_user_id: String, db: Db) -> Result<warp::reply::Response, Infallible> {
+    //Acquire room information from the database
     let mut db = db.lock().await;
     let rooms = db.list_rooms().await;
+
     Ok(warp::reply::json(&rooms).into_response())
 }
 
@@ -144,8 +157,11 @@ pub async fn get_room(
     _user_id: String,
     db: Db,
 ) -> Result<warp::reply::Response, Infallible> {
+    //Acquire information about the room from database
     let mut db = db.lock().await;
     let room = db.get_room(room_id).await;
+
+    //Differnet replies based on if the room was found
     match room {
         Some(room) => Ok(warp::reply::json(&room).into_response()),
         None => Ok(warp::reply::with_status(
@@ -163,6 +179,7 @@ pub async fn ws_chat(
     spotify: Spotify,
     ws: Ws,
 ) -> Result<impl warp::Reply, Infallible> {
+    //Finish connecting the websocket
     Ok(ws.on_upgrade(move |websocket| socket::connected(websocket, room_id, user_id, db, spotify)))
 }
 
@@ -172,14 +189,17 @@ pub async fn get_search(
     spotify: Spotify,
     query: HashMap<String, String>,
 ) -> Result<impl warp::Reply, Infallible> {
+    //Extract query from query parameters
     let query = query.get("q");
 
     match query {
         Some(query) => {
+            //Get users token from database
             let mut db = db.lock().await;
             let token = db.get_auth(user_id).await.unwrap();
             std::mem::drop(db);
 
+            //Perform a search on spotify
             let spotify = spotify.lock().await;
             let results = spotify
                 .request_search(
@@ -194,6 +214,7 @@ pub async fn get_search(
                 .await;
             std::mem::drop(spotify);
 
+            //Only keep the useful information from search results
             let response: Vec<spotify::util::ShortTrack> = results
                 .tracks
                 .items
@@ -219,15 +240,18 @@ pub async fn list_user_queue(
     db: Db,
     spotify: Spotify,
 ) -> Result<warp::reply::Response, Infallible> {
+    //Acquire list of ids from database
     let mut db = db.lock().await;
     let token = db.get_auth(user_id.clone()).await.unwrap();
     let track_ids = db.list_user_queue(room_id, user_id).await;
     std::mem::drop(db);
 
     let response: Vec<spotify::util::ShortTrack> = if !track_ids.is_empty() {
+        //Get information on these ids from spotify
         let spotify = spotify.lock().await;
         let results = spotify.request_tracks(token, track_ids).await;
 
+        //Only return the useful part of the response
         let response: Vec<spotify::util::ShortTrack> = results
             .tracks
             .iter()
@@ -238,6 +262,7 @@ pub async fn list_user_queue(
 
         response
     } else {
+        //If is empty or doesn't exist then return an empty list
         Vec::new()
     };
 
