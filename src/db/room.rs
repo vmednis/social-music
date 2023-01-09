@@ -218,3 +218,108 @@ impl TryFrom<Option<HashMap<String, String>>> for Room {
         Ok(Room { id, title, owner })
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_room_validate_success() {
+        let room = Room {
+            id: "test-room".to_string(),
+            title: "Test Room".to_string(),
+            owner: "user:id:name".to_string(),
+        };
+
+        assert_eq!(room.validate(), Ok(()));
+    }
+
+    #[test]
+    fn test_room_validate_fail() {
+        let room = Room {
+            id: "".to_string(),
+            title: "".to_string(),
+            owner: "".to_string(),
+        };
+
+        let res = room.validate();
+        assert_ne!(res, Ok(()));
+        assert_ne!(res.unwrap_err().len(), 0);
+    }
+
+    #[test]
+    fn test_room_into_tuple_list() {
+        let room = Room {
+            id: "test-room".to_string(),
+            title: "Test Room".to_string(),
+            owner: "user:id:name".to_string(),
+        };
+
+        let tuple_list: Vec<(String, String)> = room.into();
+        assert_eq!(tuple_list.len(), 3);
+
+        let mut has_id = false;
+        let mut has_title = false;
+        let mut has_owner = false;
+
+        for (left, right) in tuple_list {
+            //Have to do it like this in case one value appears more than once
+            match left.as_str() {
+                "id" => {
+                    if right == "test-room" {
+                        has_id = true;
+                    }
+                },
+                "title" => {
+                    if right == "Test Room" {
+                        has_title = true;
+                    }
+                }
+                "owner" => {
+                    if right == "user:id:name" {
+                        has_owner = true;
+                    }
+                }
+                _ => {
+                    //Unexpected left side value
+                    assert!(false);
+                }
+            }
+        }
+
+        assert!(has_id);
+        assert!(has_title);
+        assert!(has_owner);
+    }
+
+    #[test]
+    fn test_room_from_hashmap_success() {
+        let mut map: HashMap<String, String> = HashMap::new();
+        map.insert("id".to_string(), "test-room".to_string());
+        map.insert("owner".to_string(), "user:id:name".to_string());
+        map.insert("title".to_string(), "Test Room".to_string());
+
+        let res: Result<Room, &str> = Some(map).try_into();
+        assert!(res.is_ok());
+
+        let room = res.unwrap();
+        assert_eq!(room.id.as_str(), "test-room");
+        assert_eq!(room.title.as_str(), "Test Room");
+        assert_eq!(room.owner.as_str(), "user:id:name");
+    }
+
+    #[test]
+    fn test_room_from_hashmap_fail_none() {
+        let res: Result<Room, &str> = None.try_into();
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_room_from_hashmap_fail_some() {
+        let mut map: HashMap<String, String> = HashMap::new();
+        map.insert("id".to_string(), "test-room".to_string());
+
+        let res: Result<Room, &str> = Some(map).try_into();
+        assert!(res.is_err());
+    }
+}
